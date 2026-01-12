@@ -43,35 +43,34 @@ export default function Signup() {
     setErrorMessage('');
   };
 
+  // --- THE FIX IS HERE ---
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     setFormData({ ...formData, province: newProvince, district: '' });
-    setAvailableDistricts(nepalLocations[newProvince] || []);
+    
+    // Get the object for the selected province
+    const provinceData = nepalLocations[newProvince] || {};
+    // Convert the object keys (District Names) into an array
+    setAvailableDistricts(Object.keys(provinceData));
   };
 
-  // In app/signup/page.js
-
-// Inside app/signup/page.js
-
-// ... inside handleGoogleLogin function ...
-const handleGoogleLogin = async () => {
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { 
-        // THIS IS THE CRITICAL FIX:
-        redirectTo: `${window.location.origin}/auth/callback?role=${userType}`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+          redirectTo: `${window.location.origin}/auth/callback?role=${userType}`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    });
-    if (error) throw error;
-  } catch (error) {
-    setErrorMessage(error.message);
-  }
-};
+      });
+      if (error) throw error;
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -88,27 +87,25 @@ const handleGoogleLogin = async () => {
     }
 
     try {
-      // Inside handleSignup...
-const { error } = await supabase.auth.signUp({
-  email: formData.email,
-  password: formData.password,
-  options: {
-    data: {
-      full_name: formData.fullName,
-      role: userType,
-      phone: formData.phone,
-      province: formData.province,
-      district: formData.district,
-      
-      // These keys must match exactly what we wrote in the SQL above (business_name, etc)
-      business_name: userType === 'business' ? formData.businessName : null,
-      business_type: userType === 'business' ? formData.businessType : null,
-      business_address: userType === 'business' ? formData.businessAddress : null,
-      business_email: userType === 'business' ? formData.businessEmail : null,
-      pan_number: userType === 'business' ? formData.panNumber : null
-    }
-  }
-});
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            role: userType,
+            phone: formData.phone,
+            province: formData.province,
+            district: formData.district,
+            
+            business_name: userType === 'business' ? formData.businessName : null,
+            business_type: userType === 'business' ? formData.businessType : null,
+            business_address: userType === 'business' ? formData.businessAddress : null,
+            business_email: userType === 'business' ? formData.businessEmail : null,
+            pan_number: userType === 'business' ? formData.panNumber : null
+          }
+        }
+      });
 
       if (error) throw error;
       setShowVerification(true);

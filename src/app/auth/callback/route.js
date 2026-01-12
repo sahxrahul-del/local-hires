@@ -44,13 +44,16 @@ export async function GET(request) {
         const metaName = user.user_metadata?.full_name || user.user_metadata?.name || '';
         const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
 
-        // 4. UPSERT (This fixes the race condition by overwriting the trigger's default)
+        // 4. UPSERT (Smart Update)
+        // Only use Google data if the profile is missing those fields.
+        // Otherwise, keep what the user manually saved in their profile.
         await supabase.from('profiles').upsert({
             id: user.id,
             email: user.email,
             role: finalRole,
-            full_name: metaName,
-            avatar_url: metaAvatar,
+            // If they already have a name in DB, keep it. If not, use Google name.
+            full_name: existingProfile?.full_name || metaName, 
+            avatar_url: existingProfile?.avatar_url || metaAvatar,
             updated_at: new Date().toISOString(),
         });
 

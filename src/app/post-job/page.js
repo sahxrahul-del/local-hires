@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
-import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Building2, Wallet, FileText, CheckCircle, LayoutDashboard, PlusCircle, X } from 'lucide-react';
+import Image from 'next/image'; 
+import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Building2, Wallet, FileText, CheckCircle, LayoutDashboard, PlusCircle, X, QrCode } from 'lucide-react';
 import { nepalLocations, provinces } from '../../lib/nepalLocations';
-import CryptoJS from 'crypto-js'; 
 
 const TIME_OPTIONS = [
   "5:00 AM", "5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", 
@@ -27,7 +27,7 @@ export default function PostJob() {
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // <--- New State for Popup
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // Job Form State
   const [companyName, setCompanyName] = useState('');
@@ -52,6 +52,9 @@ export default function PostJob() {
   const [workHourStart, setWorkHourStart] = useState('');
   const [workHourEnd, setWorkHourEnd] = useState('');
 
+  // Payment State
+  const [paymentId, setPaymentId] = useState(''); 
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -68,7 +71,6 @@ export default function PostJob() {
       setUser(user);
       setProfile(profileData);
       
-      // Auto-fill Data
       setCompanyName(profileData?.business_name || profileData?.full_name || '');
       if (profileData?.phone) {
           setContactPhone(profileData.phone);
@@ -105,8 +107,7 @@ export default function PostJob() {
     }
   };
 
-  // --- NEW PAYMENT & POST LOGIC ---
-  const handlePaymentAndPost = async (e) => {
+  const handlePostJob = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
@@ -115,6 +116,7 @@ export default function PostJob() {
 
     try {
         const isAdmin = profile?.role === 'admin';
+        // Admin posts LIVE instantly. Business posts PENDING for approval.
         const initialStatus = isAdmin ? 'PAID' : 'PENDING';
 
         const { error } = await supabase.from('jobs').insert([
@@ -123,7 +125,7 @@ export default function PostJob() {
                 employer_id: user.id,
                 company_name: companyName,
                 title,
-                description,
+                description, // <--- No longer appending Payment ID here
                 pay_rate: payRate,
                 province,
                 district,
@@ -135,58 +137,19 @@ export default function PostJob() {
                 work_hour_end: workHourEnd,
                 contact_phone: contactPhone,
                 payment_status: initialStatus,
+                payment_id: paymentId, // <--- Saving to the NEW separate column
                 views: 0
             },
         ]);
 
         if (error) throw error;
 
-        // --- IF ADMIN: SHOW SUCCESS MODAL ---
-        if (isAdmin) {
-            setSubmitting(false);
-            setShowSuccessModal(true); // <--- Show Popup
-            return; 
-        }
-
-        // --- IF BUSINESS: PROCEED TO ESEWA ---
-        const amount = "99";
-        const tax_amount = "0";
-        const total_amount = "99";
-        const transaction_uuid = jobId;
-        const product_code = "EPAYTEST"; 
-        const product_service_charge = "0";
-        const product_delivery_charge = "0";
-        const success_url = `${window.location.origin}/payment/success`;
-        const failure_url = `${window.location.origin}/post-job`; 
-        const signed_field_names = "total_amount,transaction_uuid,product_code";
-
-        const signatureString = `total_amount=${total_amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
-        const secret = "8gBm/:&EnhH.1/q"; 
-        const signature = CryptoJS.HmacSHA256(signatureString, secret).toString(CryptoJS.enc.Base64);
-
-        const form = document.createElement("form");
-        form.setAttribute("method", "POST");
-        form.setAttribute("action", "https://rc-epay.esewa.com.np/api/epay/main/v2/form");
-
-        const params = {
-            amount, tax_amount, total_amount, transaction_uuid, product_code, 
-            product_service_charge, product_delivery_charge, success_url, failure_url, 
-            signed_field_names, signature
-        };
-
-        for (const key in params) {
-            const hiddenField = document.createElement("input");
-            hiddenField.setAttribute("type", "hidden");
-            hiddenField.setAttribute("name", key);
-            hiddenField.setAttribute("value", params[key]);
-            form.appendChild(hiddenField);
-        }
-
-        document.body.appendChild(form);
-        form.submit();
+        // No External API Call - Just Show Success
+        setSubmitting(false);
+        setShowSuccessModal(true); 
 
     } catch (error) {
-        alert('Error initiating payment: ' + error.message);
+        alert('Error posting job: ' + error.message);
         setSubmitting(false);
     }
   };
@@ -212,15 +175,18 @@ export default function PostJob() {
                    <CheckCircle className="w-10 h-10 text-green-600" />
                </div>
                
-               <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Job Posted!</h2>
-               <p className="text-gray-500 mb-8">Admin Bypass Active. Your job is now <span className="text-green-600 font-bold">LIVE</span> instantly.</p>
+               <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
+                   {profile?.role === 'admin' ? "Job Posted Live!" : "Submitted for Review"}
+               </h2>
+               <p className="text-gray-500 mb-8">
+                   {profile?.role === 'admin' 
+                     ? "Your job is now live on the platform." 
+                     : "Admin will verify your payment and approve the job within 1 hour."}
+               </p>
                
                <div className="space-y-3">
                    <button onClick={() => router.push('/dashboard')} className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold hover:bg-blue-800 transition flex items-center justify-center">
                        <LayoutDashboard className="w-4 h-4 mr-2"/> Go to Dashboard
-                   </button>
-                   <button onClick={() => { setShowSuccessModal(false); window.location.reload(); }} className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center">
-                       <PlusCircle className="w-4 h-4 mr-2"/> Post Another
                    </button>
                </div>
            </div>
@@ -236,11 +202,11 @@ export default function PostJob() {
           <div className="bg-blue-900 p-8 text-white text-center">
              <h1 className="text-3xl font-extrabold">Post a New Job</h1>
              <p className="text-blue-100 mt-2">
-                 {profile?.role === 'admin' ? "✨ Admin Mode: Free Posting" : "Find the perfect candidate."}
+                 {profile?.role === 'admin' ? "✨ Admin Mode: Free Posting" : "Scan QR, Pay, and Get Hired."}
              </p>
           </div>
 
-          <form onSubmit={handlePaymentAndPost} className="p-8 space-y-8">
+          <form onSubmit={handlePostJob} className="p-8 space-y-8">
             
             {/* Job Details Section */}
             <section className="space-y-5">
@@ -406,26 +372,44 @@ export default function PostJob() {
                 />
             </section>
 
-            {/* --- PAYMENT SUMMARY --- */}
-            <section className="bg-green-50 p-6 rounded-2xl border border-green-100 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="bg-green-100 p-3 rounded-full text-green-700">
-                        <Wallet className="w-6 h-6" />
+            {/* --- MANUAL PAYMENT (QR CODE) --- */}
+            {profile?.role !== 'admin' && (
+                <section className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                    <div className="flex flex-col md:flex-row gap-6 items-center">
+                        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 shrink-0">
+                             {/* --- REPLACE WITH YOUR QR CODE IMAGE --- */}
+                             <div className="relative w-40 h-40">
+                                 <Image 
+                                    src="/qr.png" // <--- PLACE YOUR QR IMAGE IN PUBLIC FOLDER
+                                    alt="eSewa QR" 
+                                    fill 
+                                    className="object-contain rounded-lg"
+                                 />
+                             </div>
+                        </div>
+                        <div className="flex-1 text-center md:text-left">
+                            <h3 className="text-lg font-bold text-blue-900 flex items-center justify-center md:justify-start">
+                                <QrCode className="w-5 h-5 mr-2" /> Scan to Pay Rs. 99
+                            </h3>
+                            <p className="text-sm text-gray-800 font-medium mt-1 mb-4">
+                                Scan this QR code with eSewa/Khalti. Enter the Transaction ID below so we can verify.
+                            </p>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 uppercase mb-2">Transaction ID / Sender Name</label>
+                                <input 
+                                    type="text" 
+                                    value={paymentId} 
+                                    onChange={(e) => setPaymentId(e.target.value)} 
+                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-900 focus:border-blue-900 outline-none font-bold text-gray-900 placeholder-gray-400" 
+                                    placeholder="e.g. 17D234X... or Rahul Sah"
+                                    required
+                                />
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <h4 className="font-bold text-gray-900">Job Posting Fee</h4>
-                        <p className="text-sm text-green-700">Valid for 30 days live listing</p>
-                    </div>
-                </div>
-                <div className="text-right">
-                    <p className="text-xs text-gray-500 font-bold uppercase">Total to Pay</p>
-                    {profile?.role === 'admin' ? (
-                        <p className="text-3xl font-extrabold text-blue-700">Rs. 0</p>
-                    ) : (
-                        <p className="text-3xl font-extrabold text-green-700">Rs. 99</p>
-                    )}
-                </div>
-            </section>
+                </section>
+            )}
 
             {/* Submit Button */}
             <button 
@@ -436,26 +420,12 @@ export default function PostJob() {
                 }`}
             >
                 {submitting ? (
-                    <> <Loader2 className="animate-spin w-6 h-6 mr-2" /> Processing... </>
+                    <> <Loader2 className="animate-spin w-6 h-6 mr-2" /> Submitting... </>
                 ) : (
-                    <> {profile?.role === 'admin' ? 'Post Instantly (Free)' : 'Pay Rs. 99 & Post Job'} </>
+                    <> {profile?.role === 'admin' ? 'Post Instantly (Free)' : 'Submit Job for Review'} </>
                 )}
             </button>
             
-            {/* eSewa Logo (Only show if not admin) */}
-            {profile?.role !== 'admin' && (
-                <div className="text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                    <div className="w-16">
-                        <img 
-                            src="https://esewa.com.np/common/images/esewa_logo.png" 
-                            alt="eSewa" 
-                            className="w-full opacity-60 grayscale hover:grayscale-0 transition"
-                        />
-                    </div>
-                    Secured by eSewa
-                </div>
-            )}
-
           </form>
         </div>
       </main>

@@ -51,29 +51,33 @@ export default function Profile() {
           const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
           if (error && error.code !== 'PGRST116') throw error;
     
+          // --- FIX: READ SIGNUP METADATA ---
           const meta = user.user_metadata || {};
           const profile = data || {};
-          const currentProvince = profile.province || '';
+          
+          // Smart Logic: Use Profile Data (if saved) OR Metadata (from signup) OR Empty
+          const currentProvince = profile.province || meta.province || '';
           
           setFormData({
             id: user.id,
             email: user.email,
             full_name: profile.full_name || meta.full_name || '',
             avatar_url: profile.avatar_url || meta.avatar_url || AVATAR_OPTIONS[0],
-            phone: profile.phone || '',
+            phone: profile.phone || meta.phone || '', // <--- Fixed
             role: profile.role || meta.role || 'seeker',
-            province: currentProvince,
-            district: profile.district || '',
+            province: currentProvince, // <--- Fixed
+            district: profile.district || meta.district || '', // <--- Fixed
+            
+            // Business Fields Fixes
             business_name: profile.business_name || meta.business_name || '',
-            business_type: profile.business_type || '',
-            business_address: profile.business_address || '',
-            business_email: profile.business_email || '',
-            pan_number: profile.pan_number || ''
+            business_type: profile.business_type || meta.business_type || '',
+            business_address: profile.business_address || meta.business_address || '',
+            business_email: profile.business_email || meta.business_email || '',
+            pan_number: profile.pan_number || meta.pan_number || ''
           });
     
-          // --- FIX: HANDLE NEW LOCATION STRUCTURE ---
+          // Populate Districts based on the detected province
           if (currentProvince && nepalLocations[currentProvince]) {
-            // Get keys (District Names) from the object
             setAvailableDistricts(Object.keys(nepalLocations[currentProvince]));
           } else {
             setAvailableDistricts([]);
@@ -94,14 +98,13 @@ export default function Profile() {
     setMessage(null);
   };
 
-  // --- FIX: HANDLE PROVINCE CHANGE CORRECTLY ---
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     
-    // Reset district
+    // Reset district when province changes
     setFormData({ ...formData, province: newProvince, district: '' });
     
-    // Get District List (Keys)
+    // Update available districts
     if (newProvince && nepalLocations[newProvince]) {
         setAvailableDistricts(Object.keys(nepalLocations[newProvince]));
     } else {

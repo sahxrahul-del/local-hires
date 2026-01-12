@@ -39,14 +39,42 @@ export default function FindJobs() {
   const [contactInfo, setContactInfo] = useState(null);
   const [loadingContact, setLoadingContact] = useState(false);
 
-  // --- SMART LOCATION LOGIC ---
+  // --- 1. INITIAL LOAD (Runs Once) ---
+  // This fetches the user and sets the default filter ONE TIME only.
+  useEffect(() => {
+    const initUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user || null);
+
+        if (user) {
+            // Fetch Saved/Applied IDs
+            const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', user.id);
+            if (saved) setSavedJobIds(new Set(saved.map(item => item.job_id)));
+        
+            const { data: applied } = await supabase.from('applications').select('job_id').eq('user_id', user.id);
+            if (applied) setAppliedJobIds(new Set(applied.map(item => item.job_id)));
+
+            // Set Location Default (ONLY ONCE)
+            const { data: profile } = await supabase.from('profiles').select('province').eq('id', user.id).single();
+            if (profile?.province) {
+                setFilterProvince(profile.province);
+            }
+        }
+    };
+    initUser();
+  }, []); // Empty dependency array means this NEVER runs again after the first load.
+
+  // --- 2. SMART LOCATION LOGIC ---
   useEffect(() => {
     if (filterProvince !== 'All Provinces') {
         const provinceData = nepalLocations[filterProvince] || {};
         setAvailableDistricts(Object.keys(provinceData));
-        setFilterDistrict('All Districts');
-        setFilterZone('All Zones');
-        setAvailableZones([]);
+        // Only reset district if the current one doesn't belong to the new province
+        if (!nepalLocations[filterProvince]?.[filterDistrict]) {
+             setFilterDistrict('All Districts');
+             setFilterZone('All Zones');
+             setAvailableZones([]);
+        }
     } else {
         setAvailableDistricts([]);
         setFilterDistrict('All Districts');
@@ -66,7 +94,7 @@ export default function FindJobs() {
     }
   }, [filterDistrict, filterProvince]);
 
-  // --- OPTIMIZED SERVER-SIDE FETCHING ---
+  // --- 3. FETCH JOBS (Runs when filters change) ---
   useEffect(() => {
     const fetchJobs = async () => {
         try {
@@ -76,7 +104,7 @@ export default function FindJobs() {
           let query = supabase
             .from('jobs')
             .select('*')
-            // .eq('payment_status', 'PAID') // Uncomment when you launch payments
+            .eq('payment_status', 'PAID') // Only show paid/approved jobs
             .order('created_at', { ascending: false });
     
           // 2. Apply Server-Side Filters
@@ -106,39 +134,9 @@ export default function FindJobs() {
           setLoading(false);
         }
     };
-    
-    // Fetch user specific data (Saved/Applied)
-    const fetchUserData = async (userId) => {
-        const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', userId);
-        if (saved) setSavedJobIds(new Set(saved.map(item => item.job_id)));
-    
-        const { data: applied } = await supabase.from('applications').select('job_id').eq('user_id', userId);
-        if (applied) setAppliedJobIds(new Set(applied.map(item => item.job_id)));
-    
-        // Only set location defaults if filters are untouched
-        if (filterProvince === 'All Provinces') {
-            const { data: profile } = await supabase.from('profiles').select('province, district').eq('id', userId).single();
-            if (profile) {
-                if (profile.province) setFilterProvince(profile.province);
-                // Note: We let the useEffects handle setting the districts/zones
-            }
-        }
-    };
 
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user || null);
-      
-      // Fetch Jobs first
-      await fetchJobs();
-
-      if (user) {
-        await fetchUserData(user.id);
-      }
-    };
-
-    checkUser();
-  }, [supabase, searchTerm, filterProvince, filterDistrict, filterZone, filterCategory]); // Dependency Array ensures auto-refetch
+    fetchJobs();
+  }, [supabase, searchTerm, filterProvince, filterDistrict, filterZone, filterCategory]); // Runs whenever you change a filter
 
 
   const toggleSaveJob = async (e, jobId) => {

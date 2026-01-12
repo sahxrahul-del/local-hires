@@ -30,7 +30,7 @@ export default function EditJob() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // Job Form State
-  const [companyName, setCompanyName] = useState(''); // <--- Editable
+  const [companyName, setCompanyName] = useState(''); 
   const [title, setTitle] = useState('');
   const [payRate, setPayRate] = useState('');
   const [description, setDescription] = useState('');
@@ -136,7 +136,7 @@ export default function EditJob() {
       const { error } = await supabase
         .from('jobs')
         .update({
-          company_name: companyName, // <--- Updating name
+          company_name: companyName,
           title,
           description,
           pay_rate: payRate,
@@ -148,11 +148,18 @@ export default function EditJob() {
           work_day_to: workDayTo,
           work_hour_start: workHourStart,
           work_hour_end: workHourEnd,
-          contact_phone: contactPhone 
+          contact_phone: contactPhone,
+          
+          // --- SECURITY FIX: FORCE RE-APPROVAL ---
+          // This prevents "Bait & Switch" scams. 
+          // If a user edits a live job, it goes back to pending until you approve it.
+          payment_status: 'PENDING' 
         })
         .eq('id', id);
 
       if (error) throw error;
+      
+      alert("Job updated successfully! It has been submitted for admin approval.");
       router.push('/dashboard'); 
     } catch (error) {
       alert('Error updating job: ' + error.message);
@@ -227,7 +234,7 @@ export default function EditJob() {
                     <Briefcase className="w-4 h-4 mr-2"/> Job Details
                 </h3>
                 
-                {/* --- NEW: EDIT COMPANY NAME --- */}
+                {/* --- EDIT COMPANY NAME --- */}
                 <div>
                     <label className={labelClass}>Company Name</label>
                     <div className="relative">
