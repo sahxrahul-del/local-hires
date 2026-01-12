@@ -25,11 +25,7 @@ export default function Tuitions() {
   const [availableDistricts, setAvailableDistricts] = useState([]);
   const [availableZones, setAvailableZones] = useState([]); 
 
-  useEffect(() => {
-    fetchTuitions();
-  }, []);
-
-  // --- SMART LOCATION LOGIC ---
+  // --- SMART LOCATION LOGIC (Updates Dropdowns) ---
   useEffect(() => {
       if (filterProvince !== 'All Provinces') {
           const provinceData = nepalLocations[filterProvince] || {};
@@ -50,25 +46,43 @@ export default function Tuitions() {
       }
   }, [filterDistrict, filterProvince]);
 
+  // --- OPTIMIZED SERVER-SIDE FILTERING (The Speed Fix) ---
+  useEffect(() => {
+    const fetchTuitions = async () => {
+        setLoading(true);
+        try {
+            // 1. Start the query
+            let query = supabase
+                .from('tuitions')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            // 2. Apply Filters (Server-Side)
+            if (filterProvince !== 'All Provinces') {
+                query = query.eq('province', filterProvince);
+            }
+            if (filterDistrict !== 'All Districts') {
+                query = query.eq('district', filterDistrict);
+            }
+            if (filterZone !== 'All Zones') {
+                // Uses 'ilike' to find the zone inside the location text
+                query = query.ilike('location', `%${filterZone}%`);
+            }
 
-  const fetchTuitions = async () => {
-    const { data, error } = await supabase
-      .from('tuitions')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) console.error(error);
-    else setTuitions(data || []);
-    setLoading(false);
-  };
+            // 3. Fetch only the matching data
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            setTuitions(data || []);
+        } catch (error) {
+            console.error('Error fetching tuitions:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // --- FILTERING LOGIC ---
-  const filteredTuitions = tuitions.filter(t => {
-     const matchProvince = filterProvince === 'All Provinces' || t.province === filterProvince;
-     const matchDistrict = filterDistrict === 'All Districts' || t.district === filterDistrict;
-     const matchZone = filterZone === 'All Zones' || (t.location && t.location.includes(filterZone));
-     return matchProvince && matchDistrict && matchZone;
-  });
+    fetchTuitions();
+  }, [filterProvince, filterDistrict, filterZone, supabase]); // Re-runs when filters change
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans">
@@ -193,7 +207,7 @@ export default function Tuitions() {
       <main className="max-w-6xl mx-auto px-6 py-12">
         {loading ? (
             <div className="flex justify-center py-20"><Loader2 className="animate-spin w-10 h-10 text-blue-900"/></div>
-        ) : filteredTuitions.length === 0 ? (
+        ) : tuitions.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
                 <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Search className="w-8 h-8 text-gray-400" />
@@ -202,8 +216,8 @@ export default function Tuitions() {
                 <p className="text-gray-500">Try changing your location filters to see more results.</p>
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> {/* CHANGED TO md:grid-cols-2 for BIGGER CARDS */}
-                {filteredTuitions.map((item, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {tuitions.map((item, index) => (
                     <Fragment key={item.id}>
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group flex flex-col h-full">
                             
@@ -219,17 +233,17 @@ export default function Tuitions() {
 
                             {/* Card Body */}
                             <div className="p-6 flex-1">
-                                <h3 className="text-2xl font-extrabold text-gray-900 mb-3">Class {item.class_level}</h3> {/* Increased font size */}
-                                <p className="text-base font-semibold text-blue-600 mb-6 flex items-center bg-blue-50 w-fit px-4 py-1.5 rounded-full"> {/* Increased padding/font */}
+                                <h3 className="text-2xl font-extrabold text-gray-900 mb-3">Class {item.class_level}</h3>
+                                <p className="text-base font-semibold text-blue-600 mb-6 flex items-center bg-blue-50 w-fit px-4 py-1.5 rounded-full">
                                     <BookOpen className="w-4 h-4 mr-2"/> {item.subject || 'All Subjects'}
                                 </p>
 
                                 <div className="space-y-4">
-                                    <div className="flex items-start text-gray-600 text-base"> {/* Increased text size */}
+                                    <div className="flex items-start text-gray-600 text-base">
                                         <Clock className="w-5 h-5 mr-3 text-orange-400 mt-0.5 shrink-0"/>
                                         <span className="font-medium">{item.time_slot}</span>
                                     </div>
-                                    <div className="flex items-start text-gray-600 text-base"> {/* Increased text size */}
+                                    <div className="flex items-start text-gray-600 text-base">
                                         <MapPin className="w-5 h-5 mr-3 text-green-500 mt-0.5 shrink-0"/>
                                         <span className="font-medium line-clamp-2">{item.location}, {item.district}</span>
                                     </div>
@@ -239,7 +253,7 @@ export default function Tuitions() {
                             {/* Card Footer */}
                             <div className="px-6 pb-6 pt-0 mt-auto">
                                 <div className="flex justify-between items-center border-t border-gray-100 pt-5 mb-5">
-                                     <div className="flex items-center text-gray-900 font-extrabold text-xl"> {/* Increased font size */}
+                                     <div className="flex items-center text-gray-900 font-extrabold text-xl">
                                         <Banknote className="w-6 h-6 mr-2 text-emerald-600"/>
                                         {item.salary}
                                     </div>

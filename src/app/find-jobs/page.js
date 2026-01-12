@@ -3,7 +3,7 @@ import { useEffect, useState, Fragment } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
-import { Search, MapPin, Briefcase, Clock, Phone, X, Calendar, Heart, CheckCircle, Loader2, Filter, AlertCircle } from 'lucide-react'; // Added AlertCircle
+import { Search, MapPin, Briefcase, Clock, Phone, X, Calendar, Heart, CheckCircle, Loader2, Filter } from 'lucide-react'; 
 import { nepalLocations, provinces } from '../../lib/nepalLocations'; 
 import AdBanner from '../../components/AdBanner';
 
@@ -23,7 +23,6 @@ export default function FindJobs() {
   
   // --- SEARCH & FILTER STATES ---
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('All Types');
   const [filterCategory, setFilterCategory] = useState('All Categories');
   
   // --- 3-LEVEL LOCATION FILTERS ---
@@ -67,20 +66,39 @@ export default function FindJobs() {
     }
   }, [filterDistrict, filterProvince]);
 
+  // --- OPTIMIZED SERVER-SIDE FETCHING ---
   useEffect(() => {
     const fetchJobs = async () => {
         try {
-          // --- MODIFIED QUERY FOR DEBUGGING ---
-          const { data, error } = await supabase
+          setLoading(true);
+
+          // 1. Build the Query
+          let query = supabase
             .from('jobs')
             .select('*')
-            // .eq('payment_status', 'PAID') // <--- TEMPORARILY COMMENTED OUT TO SEE YOUR NEW JOB
-            // .gte('created_at', '2025-01-01') // <--- OPTIONAL: Add a date here to hide old 2024 test jobs
+            // .eq('payment_status', 'PAID') // Uncomment when you launch payments
             .order('created_at', { ascending: false });
     
-          if (error) throw error;
+          // 2. Apply Server-Side Filters
+          if (searchTerm) {
+            query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+          }
+          if (filterProvince !== 'All Provinces') {
+            query = query.eq('province', filterProvince);
+          }
+          if (filterDistrict !== 'All Districts') {
+            query = query.eq('district', filterDistrict);
+          }
+          if (filterZone !== 'All Zones') {
+            query = query.ilike('location', `%${filterZone}%`);
+          }
+          if (filterCategory !== 'All Categories') {
+            query = query.eq('category', filterCategory);
+          }
+
+          const { data, error } = await query;
           
-          console.log("DEBUG JOBS DATA:", data); // Check your browser console to see the statuses
+          if (error) throw error;
           setJobs(data || []);
         } catch (error) {
           console.error('Error fetching jobs:', error);
@@ -89,6 +107,7 @@ export default function FindJobs() {
         }
     };
     
+    // Fetch user specific data (Saved/Applied)
     const fetchUserData = async (userId) => {
         const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', userId);
         if (saved) setSavedJobIds(new Set(saved.map(item => item.job_id)));
@@ -96,29 +115,30 @@ export default function FindJobs() {
         const { data: applied } = await supabase.from('applications').select('job_id').eq('user_id', userId);
         if (applied) setAppliedJobIds(new Set(applied.map(item => item.job_id)));
     
-        const { data: profile } = await supabase.from('profiles').select('province, district').eq('id', userId).single();
-        if (profile) {
-            if (profile.province) setFilterProvince(profile.province);
-            if (profile.province && profile.district) {
-                 const validDistricts = Object.keys(nepalLocations[profile.province] || {});
-                 if(validDistricts.includes(profile.district)) {
-                     setFilterDistrict(profile.district);
-                 }
+        // Only set location defaults if filters are untouched
+        if (filterProvince === 'All Provinces') {
+            const { data: profile } = await supabase.from('profiles').select('province, district').eq('id', userId).single();
+            if (profile) {
+                if (profile.province) setFilterProvince(profile.province);
+                // Note: We let the useEffects handle setting the districts/zones
             }
         }
     };
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      // Allow viewing without login, but check if logged in
       setUser(user || null);
+      
+      // Fetch Jobs first
       await fetchJobs();
+
       if (user) {
         await fetchUserData(user.id);
       }
     };
+
     checkUser();
-  }, [router, supabase]);
+  }, [supabase, searchTerm, filterProvince, filterDistrict, filterZone, filterCategory]); // Dependency Array ensures auto-refetch
 
 
   const toggleSaveJob = async (e, jobId) => {
@@ -181,19 +201,6 @@ export default function FindJobs() {
     setFilterZone('All Zones');
     setFilterCategory('All Categories');
   };
-
-  // --- FILTER LOGIC ---
-  const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          job.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesProvince = filterProvince === 'All Provinces' || job.province === filterProvince;
-    const matchesDistrict = filterDistrict === 'All Districts' || job.district === filterDistrict;
-    const matchesZone = filterZone === 'All Zones' || (job.location && job.location.includes(filterZone));
-    const matchesCategory = filterCategory === 'All Categories' || job.category === filterCategory;
-
-    return matchesSearch && matchesProvince && matchesDistrict && matchesZone && matchesCategory;
-  });
 
   const parseJobData = (job) => {
     let displaySchedule = "Flexible";
@@ -408,7 +415,7 @@ export default function FindJobs() {
       <main className="max-w-6xl mx-auto px-6">
         {loading ? (
              <div className="text-center py-20 text-gray-400">Loading jobs...</div>
-        ) : filteredJobs.length === 0 ? (
+        ) : jobs.length === 0 ? (
              <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                     <MapPin className="w-8 h-8 text-gray-400" />
@@ -421,7 +428,7 @@ export default function FindJobs() {
              </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredJobs.map((rawJob, index) => {
+            {jobs.map((rawJob, index) => {
                const job = parseJobData(rawJob);
                const isSaved = savedJobIds.has(job.id);
                const isApplied = appliedJobIds.has(job.id); 
