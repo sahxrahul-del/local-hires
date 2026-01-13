@@ -150,16 +150,14 @@ export default function EditJob() {
           work_hour_end: workHourEnd,
           contact_phone: contactPhone,
           
-          // --- SECURITY FIX: FORCE RE-APPROVAL ---
-          // This prevents "Bait & Switch" scams. 
-          // If a user edits a live job, it goes back to pending until you approve it.
-          payment_status: 'PENDING' 
+          // --- FREE MODE FIX: KEEP IT PAID ---
+          payment_status: 'PAID' 
         })
         .eq('id', id);
 
       if (error) throw error;
       
-      alert("Job updated successfully! It has been submitted for admin approval.");
+      alert("Job updated successfully!");
       router.push('/dashboard'); 
     } catch (error) {
       alert('Error updating job: ' + error.message);

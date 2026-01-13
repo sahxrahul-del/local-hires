@@ -3,8 +3,7 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
-import Image from 'next/image'; 
-import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Building2, Wallet, FileText, CheckCircle, LayoutDashboard, PlusCircle, X, QrCode } from 'lucide-react';
+import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Building2, FileText, CheckCircle, LayoutDashboard, PlusCircle, X } from 'lucide-react';
 import { nepalLocations, provinces } from '../../lib/nepalLocations';
 
 const TIME_OPTIONS = [
@@ -51,9 +50,6 @@ export default function PostJob() {
   const [workDayTo, setWorkDayTo] = useState('');
   const [workHourStart, setWorkHourStart] = useState('');
   const [workHourEnd, setWorkHourEnd] = useState('');
-
-  // Payment State
-  const [paymentId, setPaymentId] = useState(''); 
 
   useEffect(() => {
     const checkUser = async () => {
@@ -115,17 +111,15 @@ export default function PostJob() {
     const jobId = crypto.randomUUID();
 
     try {
-        const isAdmin = profile?.role === 'admin';
-        // Admin posts LIVE instantly. Business posts PENDING for approval.
-        const initialStatus = isAdmin ? 'PAID' : 'PENDING';
-
+        // --- FREE MODE CHANGE ---
+        // Everyone is instantly 'PAID' (Live) now. No pending status.
         const { error } = await supabase.from('jobs').insert([
             {
                 id: jobId,
                 employer_id: user.id,
                 company_name: companyName,
                 title,
-                description, // <--- No longer appending Payment ID here
+                description, 
                 pay_rate: payRate,
                 province,
                 district,
@@ -136,15 +130,16 @@ export default function PostJob() {
                 work_hour_start: workHourStart,
                 work_hour_end: workHourEnd,
                 contact_phone: contactPhone,
-                payment_status: initialStatus,
-                payment_id: paymentId, // <--- Saving to the NEW separate column
+                
+                // FORCE LIVE STATUS
+                payment_status: 'PAID', 
+                payment_id: 'FREE_TIER', 
+                
                 views: 0
             },
         ]);
 
         if (error) throw error;
-
-        // No External API Call - Just Show Success
         setSubmitting(false);
         setShowSuccessModal(true); 
 
@@ -175,18 +170,17 @@ export default function PostJob() {
                    <CheckCircle className="w-10 h-10 text-green-600" />
                </div>
                
-               <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
-                   {profile?.role === 'admin' ? "Job Posted Live!" : "Submitted for Review"}
-               </h2>
+               <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Job Posted Live!</h2>
                <p className="text-gray-500 mb-8">
-                   {profile?.role === 'admin' 
-                     ? "Your job is now live on the platform." 
-                     : "Admin will verify your payment and approve the job within 1 hour."}
+                   Your listing is now visible to thousands of job seekers instantly.
                </p>
                
                <div className="space-y-3">
                    <button onClick={() => router.push('/dashboard')} className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold hover:bg-blue-800 transition flex items-center justify-center">
                        <LayoutDashboard className="w-4 h-4 mr-2"/> Go to Dashboard
+                   </button>
+                   <button onClick={() => { setShowSuccessModal(false); window.location.reload(); }} className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center">
+                       <PlusCircle className="w-4 h-4 mr-2"/> Post Another Job
                    </button>
                </div>
            </div>
@@ -200,10 +194,8 @@ export default function PostJob() {
 
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           <div className="bg-blue-900 p-8 text-white text-center">
-             <h1 className="text-3xl font-extrabold">Post a New Job</h1>
-             <p className="text-blue-100 mt-2">
-                 {profile?.role === 'admin' ? "✨ Admin Mode: Free Posting" : "Scan QR, Pay, and Get Hired."}
-             </p>
+             <h1 className="text-3xl font-extrabold">Post a Free Job</h1>
+             <p className="text-blue-100 mt-2">Find the perfect candidate instantly. 100% Free.</p>
           </div>
 
           <form onSubmit={handlePostJob} className="p-8 space-y-8">
@@ -372,57 +364,16 @@ export default function PostJob() {
                 />
             </section>
 
-            {/* --- MANUAL PAYMENT (QR CODE) --- */}
-            {profile?.role !== 'admin' && (
-                <section className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                    <div className="flex flex-col md:flex-row gap-6 items-center">
-                        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 shrink-0">
-                             {/* --- REPLACE WITH YOUR QR CODE IMAGE --- */}
-                             <div className="relative w-40 h-40">
-                                 <Image 
-                                    src="/qr.png" // <--- PLACE YOUR QR IMAGE IN PUBLIC FOLDER
-                                    alt="eSewa QR" 
-                                    fill 
-                                    className="object-contain rounded-lg"
-                                 />
-                             </div>
-                        </div>
-                        <div className="flex-1 text-center md:text-left">
-                            <h3 className="text-lg font-bold text-blue-900 flex items-center justify-center md:justify-start">
-                                <QrCode className="w-5 h-5 mr-2" /> Scan to Pay Rs. 99
-                            </h3>
-                            <p className="text-sm text-gray-800 font-medium mt-1 mb-4">
-                                Scan this QR code with eSewa/Khalti. Enter the Transaction ID below so we can verify.
-                            </p>
-                            
-                            <div>
-                                <label className="block text-sm font-bold text-gray-900 uppercase mb-2">Transaction ID / Sender Name</label>
-                                <input 
-                                    type="text" 
-                                    value={paymentId} 
-                                    onChange={(e) => setPaymentId(e.target.value)} 
-                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-900 focus:border-blue-900 outline-none font-bold text-gray-900 placeholder-gray-400" 
-                                    placeholder="e.g. 17D234X... or Rahul Sah"
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            )}
-
-            {/* Submit Button */}
+            {/* Submit Button (Free Mode) */}
             <button 
                 type="submit" 
                 disabled={submitting} 
-                className={`w-full text-white py-5 rounded-2xl font-bold text-lg transition shadow-xl flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed ${
-                    profile?.role === 'admin' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20' : 'bg-green-600 hover:bg-green-700 shadow-green-600/20'
-                }`}
+                className="w-full bg-green-600 text-white py-5 rounded-2xl font-bold text-lg transition shadow-xl flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed hover:bg-green-700 shadow-green-600/20"
             >
                 {submitting ? (
-                    <> <Loader2 className="animate-spin w-6 h-6 mr-2" /> Submitting... </>
+                    <> <Loader2 className="animate-spin w-6 h-6 mr-2" /> Posting... </>
                 ) : (
-                    <> {profile?.role === 'admin' ? 'Post Instantly (Free)' : 'Submit Job for Review'} </>
+                    <> Post Job Now (Free) </>
                 )}
             </button>
             
