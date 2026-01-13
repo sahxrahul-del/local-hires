@@ -27,16 +27,20 @@ export async function GET(request) {
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // --- FORCE UPDATE ROLE LOGIC ---
+        // --- FORCE UPDATE ROLE & PREVENT OVERWRITE LOGIC ---
         let finalRole = 'seeker';
         
-        // 1. Check existing profile first
-        const { data: existingProfile } = await supabase.from('profiles').select('role, phone').eq('id', user.id).single();
+        // 1. Check existing profile first (Added full_name and avatar_url to selection)
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('role, phone, full_name, avatar_url')
+            .eq('id', user.id)
+            .single();
 
         // 2. Decide Role
         if (roleParam === 'business') {
              finalRole = 'business'; // URL override (Highest Priority)
-        } else if (existingProfile) {
+        } else if (existingProfile?.role) {
              finalRole = existingProfile.role; // Respect existing
         }
 
@@ -45,13 +49,11 @@ export async function GET(request) {
         const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
 
         // 4. UPSERT (Smart Update)
-        // Only use Google data if the profile is missing those fields.
-        // Otherwise, keep what the user manually saved in their profile.
+        // FIX: If they already have a name in DB, keep it. If not, use Google name.
         await supabase.from('profiles').upsert({
             id: user.id,
             email: user.email,
             role: finalRole,
-            // If they already have a name in DB, keep it. If not, use Google name.
             full_name: existingProfile?.full_name || metaName, 
             avatar_url: existingProfile?.avatar_url || metaAvatar,
             updated_at: new Date().toISOString(),
