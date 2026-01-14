@@ -363,12 +363,12 @@ export default function PostJob() {
             <button 
                 type="submit" 
                 disabled={submitting} 
-                className="w-full bg-green-600 text-white py-5 rounded-2xl font-bold text-lg transition shadow-xl flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed hover:bg-green-700 shadow-green-600/20"
+                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg transition shadow-xl flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed hover:bg-blue-800 shadow-blue-800/20"
             >
                 {submitting ? (
                     <> <Loader2 className="animate-spin w-6 h-6 mr-2" /> Posting... </>
                 ) : (
-                    <> Post Job Now (Free) </>
+                    <> Post Job Now </>
                 )}
             </button>
             

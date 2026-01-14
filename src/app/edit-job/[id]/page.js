@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter, useParams } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
-import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Trash2, AlertTriangle, X, Building2 } from 'lucide-react';
+// Added CheckCircle and LayoutDashboard to imports for the new modal
+import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Trash2, AlertTriangle, X, Building2, CheckCircle, LayoutDashboard } from 'lucide-react';
 import { nepalLocations, provinces } from '../../../lib/nepalLocations';
 
 const TIME_OPTIONS = [
@@ -27,7 +28,10 @@ export default function EditJob() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  // Modal States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // <--- NEW STATE FOR SUCCESS POPUP
   
   // Job Form State
   const [companyName, setCompanyName] = useState(''); 
@@ -157,11 +161,12 @@ export default function EditJob() {
 
       if (error) throw error;
       
-      alert("Job updated successfully!");
-      router.push('/dashboard'); 
+      // --- NEW SUCCESS LOGIC ---
+      setUpdating(false);
+      setShowSuccessModal(true); // Show the nice popup instead of alert()
+
     } catch (error) {
       alert('Error updating job: ' + error.message);
-    } finally {
       setUpdating(false);
     }
   };
@@ -188,6 +193,31 @@ export default function EditJob() {
     <div className="min-h-screen bg-gray-50 font-sans pb-20 relative">
       <Navbar />
 
+      {/* --- NEW SUCCESS MODAL (Glass Blur) --- */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in duration-300">
+           <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center relative border border-gray-100">
+               
+               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                   <CheckCircle className="w-10 h-10 text-green-600" />
+               </div>
+               
+               <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Job Updated!</h2>
+               <p className="text-gray-500 mb-8">
+                   Your changes have been saved and the job listing is live.
+               </p>
+               
+               <button 
+                  onClick={() => router.push('/dashboard')} 
+                  className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold hover:bg-blue-800 transition flex items-center justify-center shadow-lg"
+               >
+                   <LayoutDashboard className="w-4 h-4 mr-2"/> Go to Dashboard
+               </button>
+           </div>
+        </div>
+      )}
+
+      {/* --- DELETE CONFIRMATION MODAL --- */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full border border-gray-100 scale-100 animate-in zoom-in-95 duration-200">

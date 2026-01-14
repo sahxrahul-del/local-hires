@@ -218,7 +218,7 @@ export default function Tuitions() {
                                     VAC #{item.vacancy_no}
                                 </span>
                                 <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center ${item.teacher_gender === 'Female' ? 'bg-pink-100 text-pink-700' : item.teacher_gender === 'Male' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                    <User className="w-3 h-3 mr-1"/> {item.teacher_gender} Only
+                                    <User className="w-3 h-3 mr-1"/> {item.teacher_gender} Teacher
                                 </span>
                             </div>
 
