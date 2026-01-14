@@ -159,15 +159,6 @@ export default function Tuitions() {
          <div className="relative z-10">
              <h1 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Find Home Tuitions</h1>
              <p className="text-blue-100 text-lg max-w-2xl mx-auto">Connect with students and parents looking for tutors in your area.</p>
-             
-             {/* --- AD BANNER 1: TOP BANNER --- */}
-             <div className="max-w-4xl mx-auto my-8">
-                <AdBanner 
-                    dataAdSlot="1234567890" 
-                    dataAdFormat="horizontal" 
-                    dataFullWidthResponsive="true" 
-                />
-             </div>
 
              {/* --- 3-LEVEL FILTER BAR --- */}
              <div className="max-w-4xl mx-auto mt-10 p-2 bg-white/10 backdrop-blur-md rounded-2xl flex flex-col md:flex-row gap-2 border border-white/20 shadow-xl">
