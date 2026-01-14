@@ -40,7 +40,6 @@ export default function FindJobs() {
   const [loadingContact, setLoadingContact] = useState(false);
 
   // --- 1. INITIAL LOAD (Runs Once) ---
-  // This fetches the user and sets the default filter ONE TIME only.
   useEffect(() => {
     const initUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -62,14 +61,13 @@ export default function FindJobs() {
         }
     };
     initUser();
-  }, []); // Empty dependency array means this NEVER runs again after the first load.
+  }, []); 
 
   // --- 2. SMART LOCATION LOGIC ---
   useEffect(() => {
     if (filterProvince !== 'All Provinces') {
         const provinceData = nepalLocations[filterProvince] || {};
         setAvailableDistricts(Object.keys(provinceData));
-        // Only reset district if the current one doesn't belong to the new province
         if (!nepalLocations[filterProvince]?.[filterDistrict]) {
              setFilterDistrict('All Districts');
              setFilterZone('All Zones');
@@ -100,14 +98,12 @@ export default function FindJobs() {
         try {
           setLoading(true);
 
-          // 1. Build the Query
           let query = supabase
             .from('jobs')
             .select('*')
-            .eq('payment_status', 'PAID') // Only show paid/approved jobs
+            .eq('payment_status', 'PAID') 
             .order('created_at', { ascending: false });
     
-          // 2. Apply Server-Side Filters
           if (searchTerm) {
             query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
           }
@@ -136,8 +132,7 @@ export default function FindJobs() {
     };
 
     fetchJobs();
-  }, [supabase, searchTerm, filterProvince, filterDistrict, filterZone, filterCategory]); // Runs whenever you change a filter
-
+  }, [supabase, searchTerm, filterProvince, filterDistrict, filterZone, filterCategory]); 
 
   const toggleSaveJob = async (e, jobId) => {
     e.stopPropagation(); 
@@ -206,11 +201,6 @@ export default function FindJobs() {
 
     if (job.work_day_from && job.work_day_to && job.work_hour_start && job.work_hour_end) {
       displaySchedule = `${job.work_day_from} - ${job.work_day_to}, ${job.work_hour_start} - ${job.work_hour_end}`;
-    } else if (displayDescription.includes("Schedule:")) {
-       const parts = displayDescription.split("Schedule:");
-       if (parts.length > 1) {
-         displaySchedule = parts[1].split('\n')[0].trim();
-       }
     }
 
     if (displayDescription.includes("Schedule:")) {
@@ -338,7 +328,6 @@ export default function FindJobs() {
 
         {/* --- MAIN SEARCH BAR --- */}
         <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 mb-4">
-            
             <div className="flex-1 relative">
                 <Search className="absolute left-4 top-3.5 text-gray-400 w-5 h-5" />
                 <input 
@@ -349,10 +338,7 @@ export default function FindJobs() {
                   className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-gray-900 font-medium focus:ring-2 focus:ring-blue-100"
                 />
             </div>
-
             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar">
-                
-                {/* 1. PROVINCE */}
                 <select 
                     value={filterProvince} 
                     onChange={(e) => setFilterProvince(e.target.value)} 
@@ -361,8 +347,6 @@ export default function FindJobs() {
                     <option>All Provinces</option>
                     {provinces.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
-
-                {/* 2. DISTRICT */}
                 <select 
                     value={filterDistrict} 
                     onChange={(e) => setFilterDistrict(e.target.value)} 
@@ -372,8 +356,6 @@ export default function FindJobs() {
                     <option>All Districts</option>
                     {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-
-                {/* 3. CITY ZONE (NEW) */}
                 <select 
                     value={filterZone} 
                     onChange={(e) => setFilterZone(e.target.value)} 
@@ -383,8 +365,6 @@ export default function FindJobs() {
                     <option>All Zones</option>
                     {availableZones.map(z => <option key={z} value={z}>{z}</option>)}
                 </select>
-
-                {/* Category */}
                 <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="py-3 px-4 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap">
                     <option>All Categories</option>
                     <option>Retail</option>
@@ -435,7 +415,6 @@ export default function FindJobs() {
                 <Fragment key={job.id}>
                     {/* JOB CARD */}
                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative group">
-                    
                         <button 
                         onClick={(e) => toggleSaveJob(e, job.id)}
                         className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition z-10"
@@ -461,13 +440,11 @@ export default function FindJobs() {
                                     <MapPin className="w-4 h-4 mr-1.5 text-emerald-500" />
                                     {job.district ? `${job.district}, ` : ''}{job.location.split(',')[0]}
                                 </span>
-                                
                                 <span className="flex items-center text-gray-600 font-bold">
                                     <span className="text-emerald-600 mr-1 text-base">Rs.</span>
                                     {job.pay_rate}
                                 </span>
                             </div>
-                            
                             <div className="flex items-center text-gray-600 text-sm font-medium">
                                 <Clock className="w-4 h-4 mr-1.5 text-orange-500" />
                                 {job.displaySchedule}
@@ -483,7 +460,6 @@ export default function FindJobs() {
                                 <Calendar className="w-3.5 h-3.5 mr-1.5" />
                                 Posted {timeAgo(job.created_at)}
                             </span>
-
                             <button 
                                 onClick={() => handleApplyClick(job)}
                                 className={`px-5 py-2.5 rounded-lg font-bold text-sm transition shadow-sm flex items-center ${
@@ -492,21 +468,16 @@ export default function FindJobs() {
                                     : 'bg-slate-900 text-white hover:bg-slate-800'
                                 }`}
                             >
-                                {isApplied ? (
-                                    <> <CheckCircle className="w-4 h-4 mr-2" /> View Again </>
-                                ) : (
-                                    "Apply Now"
-                                )}
+                                {isApplied ? <><CheckCircle className="w-4 h-4 mr-2" /> View Again</> : "Apply Now"}
                             </button>
                         </div>
-
                     </div>
 
-                    {/* --- AD BANNER 2: IN-FEED AD (EVERY 6 JOBS) --- */}
-                    {(index + 1) % 6 === 0 && (
+                    {/* --- AD BANNER 2: IN-FEED AD (EVERY 8 JOBS) --- */}
+                    {(index + 1) % 8 === 0 && (
                         <div className="col-span-1 md:col-span-2 my-4">
                             <AdBanner 
-                                dataAdSlot="1234567890" // Replace with In-Feed Ad ID
+                                dataAdSlot="1234567890" 
                                 dataAdFormat="fluid" 
                                 dataLayoutKey="-fb+5w+4e-db+86"
                             />

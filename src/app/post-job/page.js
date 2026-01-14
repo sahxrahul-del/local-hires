@@ -25,7 +25,6 @@ export default function PostJob() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // Job Form State
@@ -65,8 +64,6 @@ export default function PostJob() {
       }
 
       setUser(user);
-      setProfile(profileData);
-      
       setCompanyName(profileData?.business_name || profileData?.full_name || '');
       if (profileData?.phone) {
           setContactPhone(profileData.phone);
@@ -111,8 +108,6 @@ export default function PostJob() {
     const jobId = crypto.randomUUID();
 
     try {
-        // --- FREE MODE CHANGE ---
-        // Everyone is instantly 'PAID' (Live) now. No pending status.
         const { error } = await supabase.from('jobs').insert([
             {
                 id: jobId,
@@ -131,7 +126,7 @@ export default function PostJob() {
                 work_hour_end: workHourEnd,
                 contact_phone: contactPhone,
                 
-                // FORCE LIVE STATUS
+                // FORCE LIVE STATUS FOR FREE MODE
                 payment_status: 'PAID', 
                 payment_id: 'FREE_TIER', 
                 
