@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { CheckCircle, Loader2, PlusCircle, LayoutDashboard } from 'lucide-react'; // Changed icons
+import { CheckCircle, Loader2, PlusCircle, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PaymentSuccess() {
+// 1. Isolate the logic that uses searchParams into its own component
+function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [verifying, setVerifying] = useState(true);
@@ -75,7 +76,7 @@ export default function PaymentSuccess() {
                    </button>
                </Link>
 
-               {/* Button 2: Post Another Job (Fixed Link) */}
+               {/* Button 2: Post Another Job */}
                <Link href="/post-job">
                    <button className="w-full bg-white border border-gray-200 text-gray-700 py-3.5 rounded-xl font-bold hover:bg-gray-50 transition flex items-center justify-center">
                        <PlusCircle className="w-4 h-4 mr-2"/> Post Another Job
@@ -85,5 +86,19 @@ export default function PaymentSuccess() {
 
        </div>
     </div>
+  );
+}
+
+// 2. Export the component wrapped in Suspense to satisfy Next.js build requirements
+export default function PaymentSuccess() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+        <Loader2 className="w-12 h-12 text-blue-900 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-gray-700">Loading...</h2>
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
