@@ -3,10 +3,21 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams, origin: requestOrigin } = new URL(request.url);
   const code = searchParams.get('code');
   const roleParam = searchParams.get('role'); 
-  const next = searchParams.get('next'); // <--- 1. CAPTURE THE 'NEXT' PAGE
+  const next = searchParams.get('next'); 
+
+  // 🟢 VERCEL HTTPS FIX: Determine the correct public origin
+  // On Vercel, 'requestOrigin' might be 'http', so we check headers to force 'https'
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const isLocalEnv = process.env.NODE_ENV === 'development';
+  
+  let validOrigin = requestOrigin;
+
+  if (!isLocalEnv && forwardedHost) {
+    validOrigin = `https://${forwardedHost}`;
+  }
 
   if (code) {
     const cookieStore = await cookies();
@@ -27,12 +38,12 @@ export async function GET(request) {
 
     if (!error) {
       // --- 2. PRIORITY REDIRECT (Fixes the Reset Password Issue) ---
-      // If the email link told us to go somewhere specific (like /update-password), go there immediately.
+      // Use 'validOrigin' instead of 'origin'
       if (next) {
-          return NextResponse.redirect(`${origin}${next}`);
+          return NextResponse.redirect(`${validOrigin}${next}`);
       }
 
-      // --- STANDARD LOGIN FLOW (Your existing logic) ---
+      // --- STANDARD LOGIN FLOW ---
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // Fetch existing profile to check role
@@ -63,18 +74,20 @@ export async function GET(request) {
             updated_at: new Date().toISOString(),
         });
 
-        // --- STRICT REDIRECT LOGIC ---
+        // --- STRICT REDIRECT LOGIC (Using validOrigin) ---
         if (finalRole === 'admin') {
-            return NextResponse.redirect(`${origin}/admin`);
+            return NextResponse.redirect(`${validOrigin}/admin`);
         } else if (finalRole === 'tuition_manager') {
-            return NextResponse.redirect(`${origin}/admin/manage-tuitions`);
-        } else if (finalRole === 'business' || finalRole === 'business_manager' || finalRole === 'business_tuition_manager') {
-            return NextResponse.redirect(`${origin}/dashboard`);
+            return NextResponse.redirect(`${validOrigin}/admin/manage-tuitions`);
+        } else if (['business', 'business_manager', 'business_tuition_manager'].includes(finalRole)) {
+            return NextResponse.redirect(`${validOrigin}/dashboard`);
         } else {
-            return NextResponse.redirect(`${origin}/find-jobs`);
+            return NextResponse.redirect(`${validOrigin}/find-jobs`);
         }
       }
     }
   }
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+  
+  // Return to login with error if something fails
+  return NextResponse.redirect(`${validOrigin}/login?error=auth_failed`);
 }

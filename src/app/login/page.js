@@ -33,12 +33,16 @@ export default function Login() {
   }, [router, supabase]);
 
   const handleGoogleLogin = async () => {
+    // Dynamically get the base URL (works for localhost AND Vercel)
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+    // 🔴 FIXED: Added 'try {' here
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { 
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { access_type: 'offline', prompt: 'consent' },
+        options: {
+          // ✅ This ensures it redirects to https://your-site.vercel.app/auth/callback
+          redirectTo: `${baseUrl}/auth/callback`,
         },
       });
       if (error) throw error;

@@ -43,7 +43,6 @@ export default function Signup() {
     setErrorMessage('');
   };
 
-  // --- THE FIX IS HERE ---
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     setFormData({ ...formData, province: newProvince, district: '' });
@@ -55,11 +54,15 @@ export default function Signup() {
   };
 
   const handleGoogleLogin = async () => {
+    // ✅ This dynamic origin prevents the Vercel HTTPS error
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-          redirectTo: `${window.location.origin}/auth/callback?role=${userType}`,
+          // Passing the 'role' here allows the Callback route to set the correct profile role
+          redirectTo: `${origin}/auth/callback?role=${userType}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -112,8 +115,8 @@ export default function Signup() {
 
     } catch (error) {
        setErrorMessage(error.message.includes('unique_phone') 
-        ? "Phone number already in use." 
-        : error.message);
+       ? "Phone number already in use." 
+       : error.message);
     } finally {
       setLoading(false);
     }
@@ -263,7 +266,7 @@ export default function Signup() {
                 {/* --- BUSINESS SECTION --- */}
                 {userType === 'business' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-top-4">
-                     <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100 space-y-4">
+                      <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100 space-y-4">
                         <h3 className="font-bold text-blue-900 flex items-center"><Store className="w-4 h-4 mr-2"/> Business Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -286,7 +289,7 @@ export default function Signup() {
                            <label className={labelClass}>Tax (PAN) <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
                            <input name="panNumber" onChange={handleChange} type="text" className={inputClass} placeholder="PAN Number" />
                         </div>
-                     </div>
+                      </div>
                   </div>
                 )}
 
