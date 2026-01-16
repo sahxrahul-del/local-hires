@@ -293,17 +293,38 @@ export default function FindJobs() {
                         </a>
                     </div>
 
-                    {/* LOCATION */}
-                    <div className="flex items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="bg-gray-200 p-3 rounded-full mr-4">
-                            <MapPin className="w-6 h-6 text-gray-600" />
+                    {/* LOCATION (FIXED) */}
+                    <div className="flex items-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:border-red-300 transition group">
+                        <div className="bg-red-50 p-3 rounded-full mr-4 group-hover:scale-110 transition-transform">
+                            <MapPin className="w-6 h-6 text-red-600" />
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Location</p>
-                            <p className="text-gray-900 font-bold">
-                                {selectedJob.district ? `${selectedJob.district}, ${selectedJob.province}` : selectedJob.location}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Work Location</p>
+                            
+                            {/* Specific Address */}
+                            <p className="text-lg font-bold text-gray-900">
+                                {selectedJob.location || 'Location provided on contact'}
                             </p>
+                            
+                            {/* Broader Location */}
+                            {selectedJob.district && (
+                                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                    {selectedJob.district}, {selectedJob.province}
+                                </p>
+                            )}
                         </div>
+                        
+                        {/* Google Maps Button (Corrected Syntax) */}
+                        <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                `${selectedJob.location || ''} ${selectedJob.district || ''} ${selectedJob.province || 'Nepal'}`
+                            )}`}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-red-50 text-red-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-100 transition shadow-sm border border-red-100 whitespace-nowrap"
+                        >
+                            Map
+                        </a>
                     </div>
                 </div>
               ) : (

@@ -72,15 +72,16 @@ export default function Dashboard() {
         
         setJobs(jobsData || []);
 
-        // 4. Fetch Tuitions (Only Admin & Hybrid Manager)
-        if (role === 'admin' || role === 'business_tuition_manager') {
-            const { data: tuitionsData } = await supabase
-              .from('tuitions')
-              .select('*')
-              .eq('posted_by', user.id)
-              .order('created_at', { ascending: false });
-            setTuitions(tuitionsData || []);
-        }
+        // Inside useEffect...
+// 4. Fetch Tuitions (Only Admin & Hybrid Manager)
+if (role === 'admin' || role === 'business_tuition_manager') {
+    const { data: tuitionsData } = await supabase
+      .from('tuitions')
+      .select('*')
+      .eq('user_id', user.id) // 🟢 CHANGED FROM posted_by TO user_id
+      .order('created_at', { ascending: false });
+    setTuitions(tuitionsData || []);
+}
   
       } catch (error) {
         console.error("Error loading dashboard:", error);
