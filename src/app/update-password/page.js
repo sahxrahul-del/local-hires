@@ -1,12 +1,15 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '../../components/Navbar';
 import { Lock, Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-export default function UpdatePassword() {
+function UpdatePasswordContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error_description'); // Catch errors from URL
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -15,20 +18,33 @@ export default function UpdatePassword() {
     password: '',
     confirmPassword: '',
   });
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
+  // 1. Show URL Errors Immediately (like "Link Expired")
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-      }
-    };
-    checkSession();
-  }, [router, supabase]);
+    if (error) {
+        setMessage({ type: 'error', text: error.replace(/\+/g, ' ') });
+    }
+  }, [error]);
+
+  // 2. Check Session (Only if no error)
+  useEffect(() => {
+    if (!error) {
+        const checkSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            // Don't redirect immediately if there's an error, let the user see the message
+            // But if just visiting directly, send to login
+            // router.push('/login'); 
+        }
+        };
+        checkSession();
+    }
+  }, [router, supabase, error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,9 +109,17 @@ export default function UpdatePassword() {
             </p>
 
             {message && (
-              <div className={`p-4 rounded-lg mb-6 flex items-start ${message.type === 'success' ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}`}>
-                {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />}
-                <span className="text-sm font-bold">{message.text}</span>
+              <div className={`p-4 rounded-lg mb-6 flex flex-col items-start ${message.type === 'success' ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}`}>
+                <div className="flex items-center">
+                    {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />}
+                    <span className="text-sm font-bold">{message.text}</span>
+                </div>
+                {/* Safe "Go to Login" button if link expired */}
+                {message.type === 'error' && (
+                    <button onClick={() => router.push('/login')} className="mt-2 text-sm underline font-bold hover:text-black">
+                        Go to Login Page
+                    </button>
+                )}
               </div>
             )}
 
@@ -136,7 +160,7 @@ export default function UpdatePassword() {
 
                 <button 
                     type="submit" 
-                    disabled={loading}
+                    disabled={loading || (message && message.type === 'error' && message.text.includes('expired'))}
                     className="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-800 transition flex justify-center items-center disabled:opacity-70 mt-4"
                 >
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Update Password'}
@@ -146,4 +170,12 @@ export default function UpdatePassword() {
       </main>
     </div>
   );
+}
+
+export default function UpdatePassword() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-900 w-10 h-10"/></div>}>
+            <UpdatePasswordContent />
+        </Suspense>
+    );
 }

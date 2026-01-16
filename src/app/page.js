@@ -1,50 +1,15 @@
 "use client";
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { useState, useEffect } from 'react'; // Removed unused imports
 import Navbar from '../components/Navbar';
 import Link from 'next/link';
 import { 
   Search, Briefcase, Users, ArrowRight, UserPlus, 
-  FileText, PhoneCall, Loader2, GraduationCap, 
-  ArrowRightCircle
+  FileText, PhoneCall, GraduationCap, CheckCircle
 } from 'lucide-react';
 
 export default function Home() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-
-  useEffect(() => {
-    // 1. Check User Session & Redirect
-    const checkRedirect = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        const role = profile?.role || user.user_metadata?.role;
-
-        if (role === 'admin') router.push('/admin');
-        else if (role === 'business') router.push('/dashboard');
-        else router.push('/find-jobs');
-      } else {
-        setLoading(false);
-      }
-    };
-
-    checkRedirect();
-  }, [router, supabase]);
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="animate-spin text-blue-900 w-10 h-10" /></div>;
+  // Removed the aggressive Redirect Logic (useEffect).
+  // Now logged-in users can see the homepage too.
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900 pb-10">
@@ -73,27 +38,26 @@ export default function Home() {
             Stop searching in the dark. Connect directly with <span className="font-bold text-gray-900">verified businesses</span> and <span className="font-bold text-gray-900">skilled workers</span> in your community today.
           </p>
           
-          {/* --- ACTION BUTTONS (ALL 3) --- */}
+          {/* --- ACTION BUTTONS --- */}
           <div className="flex flex-col sm:flex-row justify-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300 flex-wrap z-20 relative">
             
-            {/* 1. FIND JOBS (Dark Blue - Matches 'Work X') */}
+            {/* 1. FIND JOBS */}
             <Link href="/find-jobs">
               <button className="w-full sm:w-auto px-8 py-4 bg-blue-900 text-white rounded-xl font-bold text-lg hover:bg-blue-950 transition shadow-lg hover:shadow-blue-900/30 hover:-translate-y-1 flex items-center justify-center group min-w-[200px]">
                 Find a Job
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
-                
               </button>
             </Link>
 
-            {/* 2. POST A JOB (Light Blue - Matches 'Nepal') */}
+            {/* 2. POST A JOB */}
             <Link href="/post-job">
               <button className="w-full sm:w-auto px-8 py-4 bg-blue-500 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition shadow-lg hover:shadow-blue-500/30 flex items-center justify-center min-w-[200px] hover:-translate-y-1">
                 <Briefcase className="w-5 h-5 mr-2" />
-                Post a Job
+                Post a Job (Free)
               </button>
             </Link>
 
-            {/* 3. FIND TUITIONS (White) */}
+            {/* 3. FIND TUITIONS */}
             <Link href="/tuitions">
               <button className="w-full sm:w-auto px-8 py-4 bg-white text-purple-700 border-2 border-purple-100 rounded-xl font-bold text-lg hover:border-purple-300 hover:bg-purple-50 transition flex items-center justify-center min-w-[200px] hover:-translate-y-1">
                 <GraduationCap className="w-5 h-5 mr-2" />
@@ -105,7 +69,7 @@ export default function Home() {
 
         </div>
 
-        {/* Background Decorative Blobs */}
+        {/* Decorative Blobs */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-0 pointer-events-none opacity-40">
             <div className="absolute -top-20 -left-20 w-96 h-96 bg-blue-100 rounded-full blur-3xl mix-blend-multiply"></div>
             <div className="absolute top-40 right-0 w-96 h-96 bg-cyan-100 rounded-full blur-3xl mix-blend-multiply"></div>
@@ -136,7 +100,7 @@ export default function Home() {
                     <PhoneCall className="w-8 h-8 text-blue-200" />
                   </div>
                   <h3 className="text-xl font-bold mb-3">3. Connect Directly</h3>
-                  <p className="text-blue-200 text-sm max-w-xs leading-relaxed">No middleman. No hidden fees. Call or email to schedule an interview immediately.</p>
+                  <p className="text-blue-200 text-sm max-w-xs leading-relaxed">No middleman. No hidden fees. Call or WhatsApp to schedule an interview immediately.</p>
                </div>
            </div>
         </div>
@@ -165,10 +129,11 @@ export default function Home() {
                    <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                        <Briefcase className="w-7 h-7 text-green-600" />
                    </div>
-                   <h3 className="text-xl font-bold text-gray-900">Incredibly Affordable</h3>
+                   {/* FIXED MISTAKE: Updated Pricing Text */}
+                   <h3 className="text-xl font-bold text-gray-900">100% Free to Use</h3>
                       <p className="text-gray-500 mt-2">
-                         Hiring shouldn't be expensive. Post a job for just <span className="text-green-600 font-bold">Rs. 99</span> and reach thousands of local candidates instantly.
-                     </p>
+                         Hiring shouldn't cost a fortune. Post unlimited jobs for <span className="text-green-600 font-bold">Free</span> and reach thousands of local candidates instantly.
+                      </p>
                </div>
 
                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">

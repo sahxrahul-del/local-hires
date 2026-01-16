@@ -1,7 +1,9 @@
 "use client";
 import { useState, useRef } from 'react';
 import Navbar from '../../components/Navbar';
-import { Mail, Phone, MapPin, Send, Loader2, CheckCircle } from 'lucide-react';
+import { 
+  Mail, Phone, MapPin, Send, Loader2, CheckCircle, MessageCircle 
+} from 'lucide-react';
 import emailjs from '@emailjs/browser';
 
 export default function Contact() {
@@ -13,7 +15,6 @@ export default function Contact() {
     e.preventDefault();
     setLoading(true);
 
-    // Using your specific keys
     emailjs.sendForm(
         'service_sidgv6h', 
         'template_fn85s3c', 
@@ -61,9 +62,21 @@ export default function Contact() {
                     </div>
                 </div>
 
+                {/* WHATSAPP CARD (New) */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start hover:border-green-300 transition group cursor-pointer" onClick={() => window.open('https://wa.me/9779800000000', '_blank')}>
+                    <div className="bg-green-100 p-3 rounded-full text-green-600 mr-4 group-hover:scale-110 transition-transform">
+                        <MessageCircle className="w-6 h-6 fill-current"/>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition">Chat on WhatsApp</h3>
+                        <p className="text-sm text-gray-500 mb-1">Instant Support</p>
+                        <p className="text-lg font-bold text-green-600 group-hover:underline">Click to Chat</p>
+                    </div>
+                </div>
+
                 {/* Email */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start">
-                    <div className="bg-green-100 p-3 rounded-full text-green-600 mr-4">
+                    <div className="bg-orange-100 p-3 rounded-full text-orange-600 mr-4">
                         <Mail className="w-6 h-6"/>
                     </div>
                     <div>
@@ -75,7 +88,7 @@ export default function Contact() {
 
                 {/* Location */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start">
-                    <div className="bg-orange-100 p-3 rounded-full text-orange-600 mr-4">
+                    <div className="bg-gray-100 p-3 rounded-full text-gray-600 mr-4">
                         <MapPin className="w-6 h-6"/>
                     </div>
                     <div>
@@ -110,7 +123,7 @@ export default function Contact() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Your Name</label>
-                                    <input type="text" name="user_name" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="John Doe" />
+                                    <input type="text" name="user_name" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ram" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Phone / Email</label>

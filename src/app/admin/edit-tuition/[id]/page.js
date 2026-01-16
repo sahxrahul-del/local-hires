@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter, useParams } from 'next/navigation';
-import Navbar from '../../../../components/Navbar'; // Adjust path (4 levels deep)
+// ✅ FIXED IMPORTS: Using '@' allows us to find these files from anywhere
+import Navbar from '@/components/Navbar'; 
+import { nepalLocations, provinces } from '@/lib/nepalLocations'; 
 import { 
   ShieldCheck, Save, BookOpen, MapPin, Clock, 
-  Phone, User, Banknote, Loader2, ArrowLeft, Hash 
+  Phone, User, Banknote, Loader2, ArrowLeft, Hash, 
+  MessageCircle, CheckCircle, XCircle 
 } from 'lucide-react';
-import { nepalLocations, provinces } from '../../../../lib/nepalLocations'; // Adjust path
 
 const TIME_OPTIONS = [
   "5:00 AM", "5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", 
@@ -20,7 +22,8 @@ const TIME_OPTIONS = [
 
 export default function EditTuition() {
   const router = useRouter();
-  const { id } = useParams();
+  const { id } = useParams(); // Gets ID from URL (e.g. /edit-tuition/123)
+  
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -28,6 +31,10 @@ export default function EditTuition() {
 
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // Modals State
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Form State
   const [vacancyNo, setVacancyNo] = useState('');
@@ -42,13 +49,14 @@ export default function EditTuition() {
   const [district, setDistrict] = useState('');
   const [cityZone, setCityZone] = useState('');
   const [landmark, setLandmark] = useState('');
-  const [address, setAddress] = useState(''); // Fallback for old data or specific address
+  const [address, setAddress] = useState(''); 
   
   const [availableDistricts, setAvailableDistricts] = useState([]);
   const [availableZones, setAvailableZones] = useState([]);
 
   // Contact
   const [contactPhone, setContactPhone] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState(''); // NEW FIELD
   const [contactPerson, setContactPerson] = useState('');
 
   // Schedule
@@ -68,7 +76,10 @@ export default function EditTuition() {
             .eq('id', id)
             .single();
 
-        if (error) { alert("Tuition not found!"); router.push('/admin/manage-tuitions'); return; }
+        if (error) { 
+            setErrorMsg("Tuition not found or deleted."); 
+            return; 
+        }
 
         // 3. Populate State
         setVacancyNo(data.vacancy_no);
@@ -78,6 +89,7 @@ export default function EditTuition() {
         setTeacherGender(data.teacher_gender);
         setDescription(data.description);
         setContactPhone(data.contact_phone);
+        setWhatsappNumber(data.whatsapp_number || ''); // Load WhatsApp
         setContactPerson(data.contact_person);
 
         // Parse Time (e.g., "5:00 PM - 6:00 PM")
@@ -92,10 +104,21 @@ export default function EditTuition() {
         // Parse Location
         setProvince(data.province || '');
         setDistrict(data.district || '');
-        // Note: For existing data, 'location' might be a combined string. 
-        // We'll put the raw location into 'address' so you don't lose it, 
-        // or you can manually split it if you want.
-        setAddress(data.location || ''); 
+        
+        // Try to separate location parts if possible, else dump in address
+        const locParts = (data.location || '').split(',').map(s => s.trim());
+        if (locParts.length >= 1) setCityZone(locParts[0]); 
+        
+        // Simple heuristic to recover address fields
+        if (locParts.length === 3) {
+            setLandmark(locParts[1]);
+            setAddress(locParts[2]);
+        } else if (locParts.length === 2) {
+            setAddress(locParts[1]);
+        } else {
+             // Fallback: put everything except zone in address if format doesn't match
+             setAddress(data.location ? data.location.replace(locParts[0] + ',', '').trim() : '');
+        }
 
         // Load Lists
         if (data.province && nepalLocations[data.province]) {
@@ -129,11 +152,14 @@ export default function EditTuition() {
   const handleUpdate = async (e) => {
       e.preventDefault();
       setUpdating(true);
+      setErrorMsg('');
       
       const fullTimeSlot = `${timeStart} - ${timeEnd}`;
-      
-      // Combine Location: Zone + Landmark + Address (Address is fallback or street name)
       const displayLocation = `${cityZone}, ${landmark ? landmark + ', ' : ''}${address}`;
+      
+      // Smart Fallback: If WhatsApp is empty, fallback to Contact Phone is handled in the View Page,
+      // but here we just save what the user typed.
+      const finalWhatsapp = whatsappNumber || contactPhone;
 
       const { error } = await supabase
           .from('tuitions')
@@ -148,27 +174,67 @@ export default function EditTuition() {
               location: displayLocation,
               description,
               contact_phone: contactPhone,
+              whatsapp_number: finalWhatsapp,
               contact_person: contactPerson,
               time_slot: fullTimeSlot
           })
           .eq('id', id);
 
       if (error) {
-          alert("Error: " + error.message);
+          setErrorMsg(error.message);
           setUpdating(false);
       } else {
-          router.push('/admin/manage-tuitions'); 
+          setShowSuccess(true);
       }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin w-10 h-10 text-blue-900"/></div>;
+  const handleSuccessRedirect = () => {
+      router.push('/admin/manage-tuitions');
+  };
 
-  const inputClass = "w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all bg-white text-gray-900 font-medium";
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-purple-900 w-10 h-10" /></div>;
+
+  const inputClass = "w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-purple-900 focus:border-transparent outline-none transition-all bg-white text-gray-900 font-medium";
   const labelClass = "block text-sm font-bold text-gray-700 mb-1.5";
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-20">
+    <div className="min-h-screen bg-gray-50 font-sans pb-20 relative">
       <Navbar />
+
+      {/* --- SUCCESS MODAL --- */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"></div>
+            <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-gray-900 mb-2">Updated!</h3>
+                <p className="text-gray-500 mb-6">Tuition details have been saved successfully.</p>
+                <button onClick={handleSuccessRedirect} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-600/20">
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+      )}
+
+      {/* --- ERROR MODAL --- */}
+      {errorMsg && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setErrorMsg('')}></div>
+            <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <XCircle className="w-10 h-10 text-red-600" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-gray-900 mb-2">Error</h3>
+                <p className="text-gray-500 mb-6">{errorMsg}</p>
+                <button onClick={() => setErrorMsg('')} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition shadow-lg shadow-red-600/20">
+                    Try Again
+                </button>
+            </div>
+        </div>
+      )}
+
       <main className="max-w-3xl mx-auto mt-8 px-4 sm:px-6">
         
         <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 mb-6 transition font-bold text-sm">
@@ -176,15 +242,19 @@ export default function EditTuition() {
         </button>
         
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-            <div className="bg-blue-900 p-8 text-white">
-                <h1 className="text-3xl font-extrabold flex items-center"><ShieldCheck className="mr-3 w-8 h-8"/> Edit Tuition</h1>
-                <p className="text-blue-100 mt-2">Update vacancy #{vacancyNo}</p>
+            <div className="bg-purple-900 p-8 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
+                <h1 className="text-3xl font-extrabold flex items-center relative z-10"><ShieldCheck className="mr-3 w-8 h-8"/> Edit Tuition</h1>
+                <p className="text-purple-100 mt-2 relative z-10">Update vacancy #{vacancyNo}</p>
             </div>
 
             <form onSubmit={handleUpdate} className="p-8 space-y-8">
                 
                 {/* Vacancy */}
-                <section className="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                <section className="bg-purple-50 p-5 rounded-xl border border-purple-100">
+                     <h3 className="text-sm font-bold text-purple-900 uppercase tracking-wider flex items-center mb-4">
+                        <Hash className="w-4 h-4 mr-2"/> Record Keeping
+                    </h3>
                     <div>
                         <label className={labelClass}>Vacancy Number</label>
                         <input type="number" className={inputClass} value={vacancyNo} onChange={e => setVacancyNo(e.target.value)} required/>
@@ -292,21 +362,38 @@ export default function EditTuition() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label className={labelClass}>Phone</label>
+                            <label className={labelClass}>Phone <span className="text-red-500">*</span></label>
                             <input type="tel" className={inputClass} value={contactPhone} onChange={e => setContactPhone(e.target.value)} required/>
                         </div>
+                        
+                        {/* WHATSAPP FIELD (New) */}
                         <div>
-                            <label className={labelClass}>Contact Person</label>
-                            <input type="text" className={inputClass} value={contactPerson} onChange={e => setContactPerson(e.target.value)}/>
+                            <label className={labelClass}>WhatsApp Number <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                            <div className="relative">
+                                <MessageCircle className="absolute left-3 top-3.5 w-5 h-5 text-green-500" />
+                                <input 
+                                    type="tel" 
+                                    className={`${inputClass} pl-10`} 
+                                    value={whatsappNumber} 
+                                    onChange={e => setWhatsappNumber(e.target.value)} 
+                                    placeholder="Same as phone if empty"
+                                />
+                            </div>
                         </div>
                     </div>
+
+                    <div>
+                         <label className={labelClass}>Contact Person</label>
+                         <input type="text" className={inputClass} value={contactPerson} onChange={e => setContactPerson(e.target.value)}/>
+                    </div>
+
                     <div>
                         <label className={labelClass}>Description</label>
                         <textarea className={`${inputClass} min-h-[120px]`} value={description} onChange={e => setDescription(e.target.value)}></textarea>
                     </div>
                 </section>
 
-                <button type="submit" disabled={updating} className="w-full bg-blue-900 text-white py-4 rounded-xl font-bold hover:bg-black transition shadow-lg flex items-center justify-center text-lg disabled:opacity-70">
+                <button type="submit" disabled={updating} className="w-full bg-purple-900 text-white py-4 rounded-xl font-bold hover:bg-purple-800 transition shadow-lg flex items-center justify-center text-lg disabled:opacity-70">
                     {updating ? <Loader2 className="animate-spin w-6 h-6 mr-2" /> : <><Save className="w-5 h-5 mr-2" /> Save Changes</>}
                 </button>
 

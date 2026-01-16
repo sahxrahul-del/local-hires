@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
-import Navbar from '../../../components/Navbar'; // Adjusted path
+import Navbar from '../../../components/Navbar'; 
 import { 
   ShieldCheck, Plus, BookOpen, MapPin, Clock, 
-  Phone, User, Banknote, Loader2, ArrowLeft, Hash 
+  Phone, User, Banknote, Loader2, ArrowLeft, Hash, MessageCircle, CheckCircle, XCircle 
 } from 'lucide-react';
-import { nepalLocations, provinces } from '../../../lib/nepalLocations'; // Adjusted path
+import { nepalLocations, provinces } from '../../../lib/nepalLocations';
 
 const TIME_OPTIONS = [
   "5:00 AM", "5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", 
@@ -25,9 +25,13 @@ export default function PostTuitionPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+
+  // Modals State
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Form State
   const [vacancyNo, setVacancyNo] = useState(''); 
@@ -48,6 +52,7 @@ export default function PostTuitionPage() {
 
   // Contact
   const [contactPhone, setContactPhone] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState(''); 
   const [contactPerson, setContactPerson] = useState('');
 
   // Schedule
@@ -55,20 +60,24 @@ export default function PostTuitionPage() {
   const [timeEnd, setTimeEnd] = useState('');
 
   useEffect(() => {
-    const checkAdmin = async () => {
+    const checkAccess = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
 
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const role = profile?.role;
+
+        // Allowed: Admin, Tuition Manager, Business-Tuition Manager
+        const allowedRoles = ['admin', 'tuition_manager', 'business_tuition_manager'];
         
-        if (profile?.role !== 'admin') {
+        if (!allowedRoles.includes(role)) {
             router.push('/'); 
         } else {
-            setIsAdmin(true);
+            setHasAccess(true);
         }
         setLoading(false);
     };
-    checkAdmin();
+    checkAccess();
   }, [router, supabase]);
 
   const handleProvinceChange = (e) => {
@@ -92,9 +101,12 @@ export default function PostTuitionPage() {
   const handlePost = async (e) => {
       e.preventDefault();
       setPosting(true);
+      setErrorMsg(''); // Reset error
+
       const { data: { user } } = await supabase.auth.getUser();
       const fullTimeSlot = `${timeStart} - ${timeEnd}`;
       const displayLocation = `${cityZone}, ${landmark ? landmark + ', ' : ''}${address}`;
+      const finalWhatsapp = whatsappNumber || contactPhone;
 
       const { error } = await supabase.from('tuitions').insert({
           vacancy_no: vacancyNo,
@@ -108,28 +120,75 @@ export default function PostTuitionPage() {
           location: displayLocation, 
           description,
           contact_phone: contactPhone,
+          whatsapp_number: finalWhatsapp, 
           contact_person: contactPerson,
-          time_slot: fullTimeSlot
+          time_slot: fullTimeSlot,
+          status: 'active'
       });
 
       if (error) {
-          alert("Error: " + error.message);
+          setErrorMsg(error.message); // Show Error Modal
           setPosting(false);
       } else {
-          alert("Tuition Posted Successfully!");
-          router.push('/tuitions'); 
+          setShowSuccess(true); // Show Success Modal
+          // Don't setPosting(false) yet, keep spinner until redirect happens
       }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-900 w-10 h-10" /></div>;
-  if (!isAdmin) return null;
+  const handleSuccessRedirect = () => {
+      router.push('/admin/manage-tuitions');
+  };
 
-  const inputClass = "w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all bg-white text-gray-900 font-medium";
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-purple-900 w-10 h-10" /></div>;
+  if (!hasAccess) return null;
+
+  const inputClass = "w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-purple-900 focus:border-transparent outline-none transition-all bg-white text-gray-900 font-medium";
   const labelClass = "block text-sm font-bold text-gray-700 mb-1.5";
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-20">
+    <div className="min-h-screen bg-gray-50 font-sans pb-20 relative">
       <Navbar />
+
+      {/* --- SUCCESS MODAL --- */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"></div>
+            <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-gray-900 mb-2">Success!</h3>
+                <p className="text-gray-500 mb-6">The tuition vacancy has been published successfully.</p>
+                <button 
+                    onClick={handleSuccessRedirect}
+                    className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-600/20"
+                >
+                    Go to Dashboard
+                </button>
+            </div>
+        </div>
+      )}
+
+      {/* --- ERROR MODAL --- */}
+      {errorMsg && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setErrorMsg('')}></div>
+            <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <XCircle className="w-10 h-10 text-red-600" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-gray-900 mb-2">Error Failed</h3>
+                <p className="text-gray-500 mb-6">{errorMsg}</p>
+                <button 
+                    onClick={() => setErrorMsg('')}
+                    className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition shadow-lg shadow-red-600/20"
+                >
+                    Try Again
+                </button>
+            </div>
+        </div>
+      )}
+
       <main className="max-w-3xl mx-auto mt-8 px-4 sm:px-6">
         
         <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 mb-6 transition font-bold text-sm">
@@ -137,20 +196,21 @@ export default function PostTuitionPage() {
         </button>
         
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-            <div className="bg-blue-900 p-8 text-white">
-                <h1 className="text-3xl font-extrabold flex items-center"><ShieldCheck className="mr-3 w-8 h-8"/> Post Tuition</h1>
-                <p className="text-blue-100 mt-2">Create a new vacancy record.</p>
+            <div className="bg-purple-900 p-8 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
+                <h1 className="text-3xl font-extrabold flex items-center relative z-10"><ShieldCheck className="mr-3 w-8 h-8"/> Post Tuition</h1>
+                <p className="text-purple-100 mt-2 relative z-10">Create a new vacancy record for students/teachers.</p>
             </div>
 
             <form onSubmit={handlePost} className="p-8 space-y-8">
                 {/* 0. VACANCY NO */}
-                <section className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                     <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center mb-4">
+                <section className="bg-purple-50 p-5 rounded-xl border border-purple-100">
+                     <h3 className="text-sm font-bold text-purple-900 uppercase tracking-wider flex items-center mb-4">
                         <Hash className="w-4 h-4 mr-2"/> Record Keeping
                     </h3>
                     <div>
                         <label className={labelClass}>Vacancy Number</label>
-                        <input type="number" className={inputClass} value={vacancyNo} onChange={e => setVacancyNo(e.target.value)} required/>
+                        <input type="number" className={inputClass} value={vacancyNo} onChange={e => setVacancyNo(e.target.value)} required placeholder="e.g. 1001"/>
                     </div>
                 </section>
 
@@ -162,11 +222,11 @@ export default function PostTuitionPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label className={labelClass}>Class / Grade</label>
-                            <input type="text" className={inputClass} value={classLevel} onChange={e => setClassLevel(e.target.value)} required/>
+                            <input type="text" className={inputClass} value={classLevel} onChange={e => setClassLevel(e.target.value)} required placeholder="e.g. Class 10"/>
                         </div>
                         <div>
                             <label className={labelClass}>Subject(s)</label>
-                            <input type="text" className={inputClass} value={subject} onChange={e => setSubject(e.target.value)} />
+                            <input type="text" className={inputClass} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Math, Science"/>
                         </div>
                     </div>
                 </section>
@@ -183,7 +243,7 @@ export default function PostTuitionPage() {
                                 <option value="">Start Time</option>
                                 {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
-                            <span className="font-bold">-</span>
+                            <span className="font-bold text-gray-400">-</span>
                             <select value={timeEnd} onChange={(e) => setTimeEnd(e.target.value)} className={inputClass} required>
                                 <option value="">End Time</option>
                                 {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -193,7 +253,10 @@ export default function PostTuitionPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                          <div>
                             <label className={labelClass}>Monthly Salary</label>
-                            <input type="text" className={inputClass} value={salary} onChange={e => setSalary(e.target.value)} required/>
+                            <div className="relative">
+                                <Banknote className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                <input type="text" className={`${inputClass} pl-10`} value={salary} onChange={e => setSalary(e.target.value)} required placeholder="e.g. Rs. 5000"/>
+                            </div>
                         </div>
                         <div>
                             <label className={labelClass}>Teacher Gender</label>
@@ -241,12 +304,12 @@ export default function PostTuitionPage() {
                         </div>
                         <div>
                              <label className={labelClass}>4. Address / Details</label>
-                             <input type="text" className={inputClass} value={address} onChange={e => setAddress(e.target.value)} required/>
+                             <input type="text" className={inputClass} value={address} onChange={e => setAddress(e.target.value)} required placeholder="Street, Ward No."/>
                         </div>
                     </div>
                     <div>
                          <label className={labelClass}>5. Landmark</label>
-                         <input type="text" className={inputClass} value={landmark} onChange={e => setLandmark(e.target.value)}/>
+                         <input type="text" className={inputClass} value={landmark} onChange={e => setLandmark(e.target.value)} placeholder="Near Temple/Hospital"/>
                     </div>
                 </section>
 
@@ -257,21 +320,44 @@ export default function PostTuitionPage() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label className={labelClass}>Contact Phone</label>
-                            <input type="tel" className={inputClass} value={contactPhone} onChange={e => setContactPhone(e.target.value)} required/>
+                            <label className={labelClass}>Contact Phone <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                <input type="tel" className={`${inputClass} pl-10`} value={contactPhone} onChange={e => setContactPhone(e.target.value)} required placeholder="98XXXXXXXX"/>
+                            </div>
                         </div>
+                        
+                        {/* WHATSAPP FIELD */}
                         <div>
-                            <label className={labelClass}>Contact Person</label>
-                            <input type="text" className={inputClass} value={contactPerson} onChange={e => setContactPerson(e.target.value)}/>
+                            <label className={labelClass}>WhatsApp Number <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                            <div className="relative">
+                                <MessageCircle className="absolute left-3 top-3.5 w-5 h-5 text-green-500" />
+                                <input 
+                                    type="tel" 
+                                    className={`${inputClass} pl-10`} 
+                                    value={whatsappNumber} 
+                                    onChange={e => setWhatsappNumber(e.target.value)} 
+                                    placeholder="Same as phone if empty"
+                                />
+                            </div>
                         </div>
                     </div>
+                    
+                    <div>
+                         <label className={labelClass}>Contact Person</label>
+                         <div className="relative">
+                            <User className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                            <input type="text" className={`${inputClass} pl-10`} value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="Parent / Student Name"/>
+                         </div>
+                    </div>
+                    
                     <div>
                         <label className={labelClass}>Description</label>
-                        <textarea className={`${inputClass} min-h-[120px]`} value={description} onChange={e => setDescription(e.target.value)}></textarea>
+                        <textarea className={`${inputClass} min-h-[120px]`} value={description} onChange={e => setDescription(e.target.value)} placeholder="Additional requirements..."></textarea>
                     </div>
                 </section>
 
-                <button type="submit" disabled={posting} className="w-full bg-blue-900 text-white py-4 rounded-xl font-bold hover:bg-black transition shadow-lg flex items-center justify-center text-lg disabled:opacity-70">
+                <button type="submit" disabled={posting} className="w-full bg-purple-900 text-white py-4 rounded-xl font-bold hover:bg-purple-800 transition shadow-lg flex items-center justify-center text-lg disabled:opacity-70">
                     {posting ? <Loader2 className="animate-spin w-6 h-6 mr-2" /> : <><Plus className="w-5 h-5 mr-2" /> Publish Tuition</>}
                 </button>
             </form>

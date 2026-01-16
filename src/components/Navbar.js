@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { 
   User, LogOut, PlusCircle, ShieldCheck, Menu, X, 
-  GraduationCap, LayoutDashboard, Briefcase, Heart, History 
+  GraduationCap, LayoutDashboard, Briefcase, Heart, History, Search 
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -67,8 +67,10 @@ export default function Navbar() {
   };
 
   const getHomeLink = () => {
-    if (role === 'business') return '/dashboard';
+    if (role === 'tuition_manager') return '/admin/manage-tuitions';
     if (role === 'admin') return '/admin'; 
+    if (role === 'business_tuition_manager') return '/dashboard';
+    if (role === 'business' || role === 'business_manager') return '/dashboard';
     if (user) return '/find-jobs';
     return '/';
   };
@@ -89,6 +91,15 @@ export default function Navbar() {
     );
   };
 
+  // Role Checks Helpers
+  const isBusiness = role === 'business' || role === 'business_manager';
+  const isTuitionManager = role === 'tuition_manager';
+  const isHybridManager = role === 'business_tuition_manager';
+  const isAdmin = role === 'admin';
+
+  const canManageJobs = isBusiness || isHybridManager || isAdmin;
+  const canManageTuitions = isTuitionManager || isHybridManager || isAdmin;
+
   return (
     <nav className="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-100">
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -107,25 +118,31 @@ export default function Navbar() {
           {/* --- DESKTOP MENU --- */}
           <div className="hidden lg:flex items-center space-x-6">
             
-            {/* 1. Public Link (Only if not logged in) */}
-            {!user && <NavLink href="/">Home</NavLink>}
+            {/* 1. PUBLIC VISITORS (Not Logged In) */}
+            {!user && (
+              <>
+                <NavLink href="/">Home</NavLink>
+                <NavLink href="/find-jobs" icon={Briefcase}>Browse Jobs</NavLink>
+                <NavLink href="/tuitions" icon={GraduationCap}>Tuitions</NavLink>
+              </>
+            )}
 
-            {/* 2. TUITIONS (Hide for Business) */}
-            {role !== 'business' && (
+            {/* 2. TUITIONS (Visible to logged in Seekers/Admins, Hidden for pure Business) */}
+            {user && !isBusiness && (
                 <NavLink href="/tuitions" icon={GraduationCap}>Tuitions</NavLink>
             )}
 
             {/* 3. JOB SEEKER ONLY */}
             {user && role === 'seeker' && (
               <>
-                <NavLink href="/find-jobs" icon={Briefcase}>Browse Jobs</NavLink>
+                <NavLink href="/find-jobs" icon={Briefcase}>Jobs</NavLink>
                 <NavLink href="/saved-jobs" icon={Heart}>Saved</NavLink>
                 <NavLink href="/applied-jobs" icon={History}>History</NavLink>
               </>
             )}
 
-            {/* 4. BUSINESS & ADMIN (Core Tools) */}
-            {user && (role === 'business' || role === 'admin') && (
+            {/* 4. JOB MANAGEMENT LINKS */}
+            {user && canManageJobs && (
               <>
                  <NavLink href="/dashboard" icon={LayoutDashboard}>Dashboard</NavLink>
                  <Link href="/post-job" className="bg-blue-900 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-800 transition flex items-center shadow-md hover:shadow-lg">
@@ -134,19 +151,21 @@ export default function Navbar() {
               </>
             )}
 
-            {/* 5. ADMIN EXCLUSIVE TOOLS */}
-            {role === 'admin' && (
-              <div className="flex items-center space-x-2 border-l border-gray-200 pl-4 ml-2">
-                 {/* Admin can browse jobs to moderate/check */}
-                 <NavLink href="/find-jobs" icon={Briefcase}>All Jobs</NavLink>
-                 
-                 <Link href="/admin/post-tuition" className="text-purple-700 font-bold text-xs bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100 border border-purple-100 transition flex items-center">
-                    <PlusCircle className="w-3.5 h-3.5 mr-1"/> Tuition
-                 </Link>
-                 <Link href="/admin/manage-tuitions" className="text-purple-700 font-bold text-xs bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100 border border-purple-100 transition flex items-center">
-                    <ShieldCheck className="w-3.5 h-3.5 mr-1"/> Manage
-                 </Link>
-              </div>
+            {/* 5. TUITION MANAGEMENT LINKS (Improved Look) */}
+            {user && canManageTuitions && (
+               <div className="flex items-center space-x-1 border-l border-gray-200 pl-4 ml-2">
+                  <Link href="/admin/post-tuition" className="flex items-center text-sm font-bold text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg transition">
+                      <PlusCircle className="w-4 h-4 mr-1.5"/> Post Tuition
+                  </Link>
+                  <Link href="/admin/manage-tuitions" className="flex items-center text-sm font-bold text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg transition">
+                      <ShieldCheck className="w-4 h-4 mr-1.5"/> Manage
+                  </Link>
+               </div>
+            )}
+            
+            {/* 6. ADMIN EXCLUSIVE */}
+            {isAdmin && (
+               <NavLink href="/find-jobs" icon={Search}>View All Jobs</NavLink>
             )}
 
             {/* User Profile / Auth */}
@@ -184,14 +203,18 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="lg:hidden bg-white border-t border-gray-100 absolute w-full left-0 top-20 shadow-xl py-4 px-6 flex flex-col space-y-4 animate-in slide-in-from-top-2">
             
-            {!user && <Link href="/" className="mobile-link">Home</Link>}
+            {!user && (
+              <>
+                <Link href="/" className="mobile-link">Home</Link>
+                <Link href="/find-jobs" className="mobile-link">Browse Jobs</Link>
+                <Link href="/tuitions" className="mobile-link">Browse Tuitions</Link>
+              </>
+            )}
             
-            {/* Hide Tuition Link for Business on Mobile too */}
-            {role !== 'business' && (
+            {user && !isBusiness && (
                 <Link href="/tuitions" className="mobile-link">Tuitions</Link>
             )}
             
-            {/* Seeker Mobile Links */}
             {user && role === 'seeker' && (
               <>
                 <Link href="/find-jobs" className="mobile-link">Browse Jobs</Link>
@@ -200,23 +223,23 @@ export default function Navbar() {
               </>
             )}
             
-            {/* Business & Admin Mobile Links */}
-            {user && (role === 'business' || role === 'admin') && (
+            {user && canManageJobs && (
                 <>
                     <Link href="/dashboard" className="mobile-link">Dashboard</Link>
                     <Link href="/post-job" className="mobile-link text-blue-600 font-bold">Post New Job</Link>
                 </>
             )}
 
-            {/* Admin Exclusive Mobile Links */}
-            {role === 'admin' && (
+            {user && canManageTuitions && (
                 <div className="bg-purple-50 p-3 rounded-lg space-y-2 border border-purple-100">
-                    <p className="text-xs font-bold text-purple-800 uppercase mb-2">Admin Panel</p>
-                    <Link href="/admin" className="block text-sm font-bold text-purple-900">Admin Console</Link>
+                    <p className="text-xs font-bold text-purple-800 uppercase mb-2">Tuition Management</p>
                     <Link href="/admin/post-tuition" className="block text-sm font-medium text-purple-700 hover:text-purple-900">Post Tuition</Link>
                     <Link href="/admin/manage-tuitions" className="block text-sm font-medium text-purple-700 hover:text-purple-900">Manage Tuitions</Link>
-                    <Link href="/find-jobs" className="block text-sm font-medium text-gray-600 hover:text-gray-900 mt-2 pt-2 border-t border-purple-100">Browse All Jobs</Link>
                 </div>
+            )}
+             
+            {isAdmin && (
+                <Link href="/find-jobs" className="block text-sm font-medium text-gray-600 hover:text-gray-900 mt-2">Admin: Browse All Jobs</Link>
             )}
 
             <div className="border-t border-gray-100 pt-4 mt-2">

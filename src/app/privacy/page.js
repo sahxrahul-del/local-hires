@@ -1,67 +1,92 @@
 "use client";
 import Navbar from '../../components/Navbar';
-import { Shield, Eye, Database, Lock, GraduationCap } from 'lucide-react';
+import { Shield, Eye, Database, Lock, Check } from 'lucide-react';
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 pb-20">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-20">
       <Navbar />
 
-      <section className="bg-blue-50 py-16 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-             <div className="w-16 h-16 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Shield className="w-8 h-8" />
-             </div>
-             <h1 className="text-4xl font-extrabold text-blue-900 mb-4">Privacy Policy</h1>
-             <p className="text-gray-600 max-w-2xl mx-auto">
-                Transparency is key. Here is how we handle data for Job Seekers, Businesses, Tutors, and Parents.
-             </p>
-        </div>
+      {/* Hero Section (Matches Terms Page) */}
+      <section className="bg-blue-900 text-white py-16 px-6 text-center">
+        <h1 className="text-4xl font-extrabold mb-4">Privacy Policy</h1>
+        <p className="text-blue-200 text-lg max-w-2xl mx-auto">
+            Transparency is key. Here is how we handle data for Job Seekers, Businesses, Tutors, and Parents.
+        </p>
+        <p className="text-blue-300 text-sm mt-4 font-mono">Last Updated: January 2026</p>
       </section>
 
-      <div className="max-w-3xl mx-auto px-6 mt-12 grid gap-12">
+      <div className="max-w-3xl mx-auto px-6 -mt-10 space-y-8">
         
-        {/* Data Collection */}
-        <div className="flex gap-6">
-            <div className="bg-blue-100 p-3 rounded-2xl h-fit text-blue-600 shrink-0"><Database className="w-6 h-6"/></div>
-            <div>
-                <h3 className="text-xl font-bold mb-3">What We Collect</h3>
-                <p className="text-gray-600 leading-relaxed">
-                    We collect basic contact details (Name, Phone, Email) when you register. 
-                    <br/>
-                    For <strong>Tuitions</strong>, we collect the location and grade details to match tutors with students.
-                    <br/>
-                    We do <strong>not</strong> store payment card details; all transactions are handled securely by eSewa.
-                </p>
+        {/* Section 1: Data Collection */}
+        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+            <h2 className="text-2xl font-bold mb-4 flex items-center text-blue-700">
+                <Database className="w-6 h-6 mr-2"/> 1. What We Collect
+            </h2>
+            <p className="text-gray-600 leading-relaxed text-lg mb-4">
+                We only collect the information necessary to connect you with opportunities.
+            </p>
+            <ul className="space-y-4 text-gray-700">
+                <li className="flex items-start bg-blue-50 p-3 rounded-lg">
+                    <Check className="w-5 h-5 text-blue-600 mr-3 mt-0.5"/> 
+                    <div>
+                        <strong className="block text-blue-900">Basic Info</strong>
+                        Name, Phone Number, and Email Address for registration.
+                    </div>
+                </li>
+                <li className="flex items-start bg-blue-50 p-3 rounded-lg">
+                    <Check className="w-5 h-5 text-blue-600 mr-3 mt-0.5"/> 
+                    <div>
+                        <strong className="block text-blue-900">Tuition Details</strong>
+                        Location, Grade, and Subject preferences to match tutors with students.
+                    </div>
+                </li>
+                <li className="flex items-start bg-green-50 p-3 rounded-lg border border-green-100">
+                    <Shield className="w-5 h-5 text-green-600 mr-3 mt-0.5"/> 
+                    <div>
+                        <strong className="block text-green-900">No Payment Data</strong>
+                        Since our platform is <strong>100% Free</strong>, we never ask for or store your credit card or banking details.
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        {/* Section 2: Data Usage */}
+        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+            <h2 className="text-2xl font-bold mb-4 flex items-center text-green-700">
+                <Eye className="w-6 h-6 mr-2"/> 2. How We Use It
+            </h2>
+            <div className="text-gray-600 leading-relaxed">
+                <p className="mb-4">Your data is used solely to facilitate connections between users:</p>
+                
+                <div className="space-y-3">
+                    <div className="flex items-start">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 mr-3 shrink-0"></span>
+                        <p><strong>Job Seekers:</strong> Your info is shared with an employer only when you actively apply for a job.</p>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 mr-3 shrink-0"></span>
+                        <p><strong>Businesses:</strong> Your contact number is publicly visible on job posts so candidates can call you directly.</p>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 mr-3 shrink-0"></span>
+                        <p><strong>Parents/Guardians:</strong> Tuition details (Class, Location) are public, but your phone number is only shown to interested tutors.</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {/* Data Usage */}
-        <div className="flex gap-6">
-            <div className="bg-green-100 p-3 rounded-2xl h-fit text-green-600 shrink-0"><Eye className="w-6 h-6"/></div>
-            <div>
-                <h3 className="text-xl font-bold mb-3">How We Use It</h3>
-                <p className="text-gray-600 leading-relaxed">
-                    Your data is used solely to make connections:
-                    <br/><br/>
-                    <ul className="list-disc pl-5 space-y-2">
-                        <li><strong>Job Seekers:</strong> Your info is shared with an employer only when you apply.</li>
-                        <li><strong>Businesses:</strong> Your contact number is visible on job posts so candidates can call you.</li>
-                        <li><strong>Parents/Guardians:</strong> Your tuition vacancy details (Class, Subject, Location) are public, but your phone number is only shown to interested tutors.</li>
-                    </ul>
-                </p>
-            </div>
-        </div>
-
-        {/* Data Protection */}
-        <div className="flex gap-6">
-            <div className="bg-purple-100 p-3 rounded-2xl h-fit text-purple-600 shrink-0"><Lock className="w-6 h-6"/></div>
-            <div>
-                <h3 className="text-xl font-bold mb-3">Data Protection</h3>
-                <p className="text-gray-600 leading-relaxed">
-                    We use industry-standard encryption. We do not sell your personal information to third-party marketing agencies.
-                </p>
-            </div>
+        {/* Section 3: Data Protection */}
+        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+            <h2 className="text-2xl font-bold mb-4 flex items-center text-purple-700">
+                <Lock className="w-6 h-6 mr-2"/> 3. Data Protection
+            </h2>
+            <p className="text-gray-600 leading-relaxed">
+                We treat your data with respect. We use industry-standard encryption to protect your personal information.
+            </p>
+            <p className="mt-4 bg-purple-50 text-purple-900 p-4 rounded-xl border border-purple-100 font-medium">
+                We strictly <strong>do not sell</strong> your personal information to third-party marketing agencies or spammers.
+            </p>
         </div>
 
       </div>

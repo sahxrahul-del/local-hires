@@ -3,169 +3,183 @@ import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
-import { Lock, Save, Loader2, ArrowLeft, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, Loader2, CheckCircle, ArrowLeft, AlertCircle, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 export default function ChangePassword() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const [formData, setFormData] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  // 2. Initialize inside the component
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [oldPassword, setOldPassword] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // Visibility States
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const handleUpdate = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
 
     // 1. Basic Validation
-    if (formData.newPassword !== formData.confirmPassword) {
+    if (password !== confirmPassword) {
       setMessage({ type: 'error', text: "New passwords do not match." });
       setLoading(false);
       return;
     }
 
-    if (formData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: "Password must be at least 6 characters." });
-      setLoading(false);
-      return;
+    if (password.length < 6) {
+        setMessage({ type: 'error', text: "New password must be at least 6 characters." });
+        setLoading(false);
+        return;
     }
 
     try {
-      // 2. Verify OLD Password by trying to sign in with it
+      // 2. GET CURRENT USER
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) throw new Error("User not found.");
 
+      // 3. VERIFY OLD PASSWORD
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
-        password: formData.oldPassword,
+        password: oldPassword,
       });
 
       if (signInError) {
         throw new Error("Incorrect old password.");
       }
 
-      // 3. Update to NEW Password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: formData.newPassword
+      // 4. UPDATE TO NEW PASSWORD
+      const { error: updateError } = await supabase.auth.updateUser({ 
+        password: password 
       });
 
       if (updateError) throw updateError;
 
-      // 4. Success!
-      setMessage({ type: 'success', text: "Password changed successfully! Redirecting..." });
+      setMessage({ type: 'success', text: "Password updated successfully!" });
       
-      // Determine where to send them based on role
+      // 5. REDIRECT LOGIC
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      const redirectUrl = profile?.role === 'business' ? '/dashboard' : '/find-jobs';
+      const role = profile?.role;
 
       setTimeout(() => {
-        router.push(redirectUrl);
-      }, 2000);
+          if (role === 'admin') router.push('/admin');
+          else if (role === 'tuition_manager') router.push('/admin/manage-tuitions');
+          else if (['business', 'business_manager', 'business_tuition_manager'].includes(role)) router.push('/dashboard');
+          else router.push('/find-jobs');
+      }, 1500);
 
     } catch (error) {
       setMessage({ type: 'error', text: error.message });
-    } finally {
       setLoading(false);
     }
   };
 
-  // Helper to toggle password visibility
-  const toggleVisibility = () => setShowPassword(!showPassword);
+  const inputClass = "w-full p-4 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all bg-white text-gray-900 font-medium";
+  const labelClass = "block text-sm font-bold text-gray-700 mb-1.5";
+
+  // Helper for toggle buttons
+  const ToggleButton = ({ isVisible, onToggle }) => (
+    <button 
+        type="button" 
+        onClick={onToggle}
+        className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 focus:outline-none"
+    >
+        {isVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+    </button>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 font-sans pb-20">
       <Navbar />
-      <main className="max-w-xl mx-auto px-6 py-10">
+      <main className="max-w-md mx-auto mt-10 px-6">
         
-        <button onClick={() => router.back()} className="flex items-center text-gray-500 mb-6 hover:text-gray-900 transition">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 mb-8 transition font-bold text-sm">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </button>
 
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-          <div className="bg-blue-900 p-6 text-center">
-            <div className="w-16 h-16 bg-blue-800 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Lock className="w-8 h-8 text-white" />
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 p-8">
+            <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Lock className="w-8 h-8 text-blue-900" />
+                </div>
+                <h1 className="text-2xl font-extrabold text-gray-900">Change Password</h1>
+                <p className="text-gray-500 mt-2 text-sm">Secure your account with a new password.</p>
             </div>
-            <h1 className="text-xl font-bold text-white">Change Password</h1>
-            <p className="text-blue-200 text-sm">Secure your account</p>
-          </div>
 
-          <div className="p-8">
             {message && (
-              <div className={`p-4 rounded-lg mb-6 flex items-start ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2 mt-0.5" /> : <AlertCircle className="w-5 h-5 mr-2 mt-0.5" />}
-                <span className="text-sm font-medium">{message.text}</span>
+              <div className={`p-4 rounded-xl mb-6 flex items-start animate-in fade-in slide-in-from-top-2 ${message.type === 'success' ? 'bg-green-50 text-green-900 border border-green-100' : 'bg-red-50 text-red-900 border border-red-100'}`}>
+                {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />}
+                <span className="font-bold text-sm">{message.text}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              
-              {/* Old Password */}
-              <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">Old Password</label>
-                <div className="relative">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    name="oldPassword" 
-                    value={formData.oldPassword} 
-                    onChange={handleChange} 
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none text-gray-900 transition"
-                    required 
-                  />
-                  <button type="button" onClick={toggleVisibility} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+            <form onSubmit={handleUpdate} className="space-y-5">
+                
+                {/* OLD PASSWORD FIELD */}
+                <div>
+                    <label className={labelClass}>Current Password</label>
+                    <div className="relative">
+                        <KeyRound className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                        <input 
+                            type={showOld ? "text" : "password"} 
+                            value={oldPassword} 
+                            onChange={(e) => setOldPassword(e.target.value)} 
+                            className={`${inputClass} pl-12 pr-12`} 
+                            placeholder="Enter current password"
+                            required 
+                        />
+                        <ToggleButton isVisible={showOld} onToggle={() => setShowOld(!showOld)} />
+                    </div>
                 </div>
-              </div>
 
-              {/* New Password */}
-              <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">New Password</label>
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  name="newPassword" 
-                  value={formData.newPassword} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none text-gray-900 transition"
-                  required 
-                />
-              </div>
+                <div className="border-t border-gray-100 my-4 pt-4">
+                    <div>
+                        <label className={labelClass}>New Password</label>
+                        <div className="relative">
+                            <input 
+                                type={showNew ? "text" : "password"} 
+                                value={password} 
+                                onChange={(e) => setPassword(e.target.value)} 
+                                className={`${inputClass} pr-12`} 
+                                placeholder="Min. 6 characters"
+                                required 
+                            />
+                            <ToggleButton isVisible={showNew} onToggle={() => setShowNew(!showNew)} />
+                        </div>
+                    </div>
+                    <div className="mt-5">
+                        <label className={labelClass}>Confirm New Password</label>
+                        <div className="relative">
+                            <input 
+                                type={showConfirm ? "text" : "password"} 
+                                value={confirmPassword} 
+                                onChange={(e) => setConfirmPassword(e.target.value)} 
+                                className={`${inputClass} pr-12`} 
+                                placeholder="Re-enter new password"
+                                required 
+                            />
+                            <ToggleButton isVisible={showConfirm} onToggle={() => setShowConfirm(!showConfirm)} />
+                        </div>
+                    </div>
+                </div>
 
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">Confirm New Password</label>
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  name="confirmPassword" 
-                  value={formData.confirmPassword} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none text-gray-900 transition"
-                  required 
-                />
-              </div>
-
-              <div className="pt-4">
-                <button type="submit" disabled={loading} className="w-full bg-blue-900 text-white font-bold py-3.5 rounded-lg hover:bg-blue-800 transition shadow-md flex justify-center items-center disabled:opacity-70">
-                  {loading ? <> <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Updating... </> : <> <Save className="w-5 h-5 mr-2" /> Update Password </>}
+                <button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="w-full bg-blue-900 text-white font-bold py-4 rounded-xl hover:bg-blue-800 transition shadow-lg hover:shadow-xl flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed text-lg mt-2"
+                >
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Update Password'}
                 </button>
-              </div>
-
             </form>
-          </div>
         </div>
       </main>
     </div>

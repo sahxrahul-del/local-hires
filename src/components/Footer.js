@@ -91,7 +91,7 @@ export default function Footer() {
 
       <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center text-xs text-slate-500">
         <p>&copy; {new Date().getFullYear()} Work X Nepal. All rights reserved.</p>
-        <p className="mt-2 md:mt-0">Made with in Nepal</p>
+        <p className="mt-2 md:mt-0">Made in Nepal</p>
       </div>
     </footer>
   );

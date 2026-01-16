@@ -3,7 +3,11 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
-import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Building2, FileText, CheckCircle, LayoutDashboard, PlusCircle, X } from 'lucide-react';
+import { 
+  Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, 
+  Building2, FileText, CheckCircle, LayoutDashboard, 
+  PlusCircle, X, MessageCircle 
+} from 'lucide-react';
 import { nepalLocations, provinces } from '../../lib/nepalLocations';
 
 const TIME_OPTIONS = [
@@ -25,6 +29,7 @@ export default function PostJob() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // Job Form State
@@ -33,7 +38,10 @@ export default function PostJob() {
   const [payRate, setPayRate] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(''); 
+  
+  // Contact State
   const [contactPhone, setContactPhone] = useState(''); 
+  const [whatsappNumber, setWhatsappNumber] = useState(''); // NEW STATE
 
   // Location State
   const [province, setProvince] = useState('');
@@ -57,13 +65,18 @@ export default function PostJob() {
       
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       
-      const role = profileData?.role;
-      if (role !== 'business' && role !== 'admin') { 
+      const userRole = profileData?.role;
+      setRole(userRole);
+
+      // --- PERMISSION CHECK ---
+      const allowedRoles = ['business', 'admin', 'business_manager', 'business_tuition_manager'];
+      if (!allowedRoles.includes(userRole)) { 
           router.push('/find-jobs'); 
           return; 
       }
 
       setUser(user);
+      
       setCompanyName(profileData?.business_name || profileData?.full_name || '');
       if (profileData?.phone) {
           setContactPhone(profileData.phone);
@@ -77,35 +90,28 @@ export default function PostJob() {
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     setProvince(newProvince);
-    setDistrict(''); 
-    setCityZone('');
-    setAvailableZones([]);
-
+    setDistrict(''); setCityZone(''); setAvailableZones([]);
     if (newProvince && nepalLocations[newProvince]) {
         setAvailableDistricts(Object.keys(nepalLocations[newProvince]));
-    } else {
-        setAvailableDistricts([]);
     }
   };
-
   const handleDistrictChange = (e) => {
     const newDistrict = e.target.value;
     setDistrict(newDistrict);
     setCityZone('');
-
     if (province && newDistrict && nepalLocations[province][newDistrict]) {
         setAvailableZones(nepalLocations[province][newDistrict]);
-    } else {
-        setAvailableZones([]);
     }
   };
 
   const handlePostJob = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-
     const fullLocationString = `${cityZone}, ${landmark ? landmark + ', ' : ''}${address}`;
     const jobId = crypto.randomUUID();
+
+    // SMART FALLBACK: Use Phone if WhatsApp is empty
+    const finalWhatsapp = whatsappNumber || contactPhone;
 
     try {
         const { error } = await supabase.from('jobs').insert([
@@ -125,19 +131,15 @@ export default function PostJob() {
                 work_hour_start: workHourStart,
                 work_hour_end: workHourEnd,
                 contact_phone: contactPhone,
-                
-                // FORCE LIVE STATUS FOR FREE MODE
+                whatsapp_number: finalWhatsapp, // SAVING TO DB
                 payment_status: 'PAID', 
                 payment_id: 'FREE_TIER', 
-                
                 views: 0
             },
         ]);
-
         if (error) throw error;
         setSubmitting(false);
         setShowSuccessModal(true); 
-
     } catch (error) {
         alert('Error posting job: ' + error.message);
         setSubmitting(false);
@@ -149,6 +151,8 @@ export default function PostJob() {
   const inputClass = "w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all bg-white text-gray-900 font-medium";
   const labelClass = "block text-sm font-bold text-gray-700 mb-1.5";
 
+  const canEditCompanyName = role === 'admin' || role === 'business_manager' || role === 'business_tuition_manager';
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-20 relative">
       <Navbar />
@@ -157,49 +161,30 @@ export default function PostJob() {
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in duration-300">
            <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center relative border border-gray-100">
-               <button onClick={() => setShowSuccessModal(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition">
-                   <X className="w-5 h-5 text-gray-400" />
-               </button>
-               
-               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                   <CheckCircle className="w-10 h-10 text-green-600" />
-               </div>
-               
+               <button onClick={() => setShowSuccessModal(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5 text-gray-400" /></button>
+               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle className="w-10 h-10 text-green-600" /></div>
                <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Job Posted Live!</h2>
-               <p className="text-gray-500 mb-8">
-                   Your listing is now visible to thousands of job seekers instantly.
-               </p>
-               
+               <p className="text-gray-500 mb-8">Your listing is now visible to thousands of job seekers instantly.</p>
                <div className="space-y-3">
-                   <button onClick={() => router.push('/dashboard')} className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold hover:bg-blue-800 transition flex items-center justify-center">
-                       <LayoutDashboard className="w-4 h-4 mr-2"/> Go to Dashboard
-                   </button>
-                   <button onClick={() => { setShowSuccessModal(false); window.location.reload(); }} className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center">
-                       <PlusCircle className="w-4 h-4 mr-2"/> Post Another Job
-                   </button>
+                   <button onClick={() => router.push('/dashboard')} className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold hover:bg-blue-800 transition flex items-center justify-center"><LayoutDashboard className="w-4 h-4 mr-2"/> Go to Dashboard</button>
+                   <button onClick={() => { setShowSuccessModal(false); window.location.reload(); }} className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center"><PlusCircle className="w-4 h-4 mr-2"/> Post Another Job</button>
                </div>
            </div>
         </div>
       )}
 
       <main className="max-w-3xl mx-auto mt-8 px-4 sm:px-6">
-        <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 mb-6 transition font-bold text-sm">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
-        </button>
-
+        <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 mb-6 transition font-bold text-sm"><ArrowLeft className="w-4 h-4 mr-1" /> Back</button>
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           <div className="bg-blue-900 p-8 text-white text-center">
              <h1 className="text-3xl font-extrabold">Post a Free Job</h1>
              <p className="text-blue-100 mt-2">Find the perfect candidate instantly. 100% Free.</p>
           </div>
-
           <form onSubmit={handlePostJob} className="p-8 space-y-8">
             
-            {/* Job Details Section */}
+            {/* JOB DETAILS SECTION */}
             <section className="space-y-5">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <Briefcase className="w-4 h-4 mr-2"/> Job Details
-                </h3>
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center"><Briefcase className="w-4 h-4 mr-2"/> Job Details</h3>
                 
                 <div>
                     <label className={labelClass}>Hiring For (Company Name) <span className="text-red-500">*</span></label>
@@ -209,18 +194,20 @@ export default function PostJob() {
                           type="text" 
                           value={companyName} 
                           onChange={(e) => setCompanyName(e.target.value)} 
-                          className={`${inputClass} pl-11`} 
+                          className={`${inputClass} pl-11 ${!canEditCompanyName ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} 
                           placeholder="e.g. ABC School or Himalayan Cafe" 
                           required 
+                          readOnly={!canEditCompanyName} 
                         />
                     </div>
+                    {!canEditCompanyName && <p className="text-xs text-gray-500 mt-1">Locked to your business profile name.</p>}
                 </div>
 
                 <div>
                     <label className={labelClass}>Job Title <span className="text-red-500">*</span></label>
                     <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="e.g. Waiter, Sales Assistant" required />
                 </div>
-
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                         <label className={labelClass}>Category <span className="text-red-500">*</span></label>
@@ -243,12 +230,10 @@ export default function PostJob() {
                     </div>
                 </div>
             </section>
-
-            {/* Schedule Section */}
+            
+            {/* SCHEDULE SECTION */}
             <section className="space-y-5 bg-gray-50 p-5 rounded-xl border border-gray-200">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <Clock className="w-4 h-4 mr-2"/> Work Schedule
-                </h3>
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center"><Clock className="w-4 h-4 mr-2"/> Work Schedule</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                         <label className={labelClass}>Work Days</label>
@@ -280,13 +265,10 @@ export default function PostJob() {
                     </div>
                 </div>
             </section>
-
-            {/* Location Section */}
+            
+            {/* LOCATION SECTION */}
             <section className="space-y-5">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <MapPin className="w-4 h-4 mr-2"/> Job Location
-                </h3>
-                
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center"><MapPin className="w-4 h-4 mr-2"/> Job Location</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
                         <label className={labelClass}>1. Province <span className="text-red-500">*</span></label>
@@ -303,7 +285,6 @@ export default function PostJob() {
                         </select>
                     </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                         <label className={labelClass}>3. City Zone <span className="text-red-500">*</span></label>
@@ -321,55 +302,47 @@ export default function PostJob() {
                         <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} placeholder="e.g. Street 5" required />
                     </div>
                 </div>
-
                 <div>
                     <label className={labelClass}>5. Landmark <span className="text-gray-400 text-xs font-normal">(Optional)</span></label>
                     <input type="text" value={landmark} onChange={(e) => setLandmark(e.target.value)} className={inputClass} placeholder="e.g. Behind Krishna Mandir" />
                 </div>
             </section>
 
-            {/* Contact Section */}
+            {/* CONTACT SECTION (UPDATED) */}
             <section className="space-y-5">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <Phone className="w-4 h-4 mr-2"/> Contact Information
-                </h3>
-                <div>
-                    <label className={labelClass}>Contact Phone</label>
-                    <input 
-                      type="tel" 
-                      value={contactPhone} 
-                      onChange={(e) => setContactPhone(e.target.value)} 
-                      className={inputClass} 
-                      placeholder="9800000000" 
-                    />
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center"><Phone className="w-4 h-4 mr-2"/> Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label className={labelClass}>Contact Phone <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                             <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                             <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={`${inputClass} pl-11`} placeholder="9800000000" required />
+                        </div>
+                    </div>
+                    {/* NEW WHATSAPP FIELD */}
+                    <div>
+                        <label className={labelClass}>WhatsApp Number <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                        <div className="relative">
+                             <MessageCircle className="absolute left-3 top-3.5 w-5 h-5 text-green-500" />
+                             <input 
+                                type="tel" 
+                                value={whatsappNumber} 
+                                onChange={(e) => setWhatsappNumber(e.target.value)} 
+                                className={`${inputClass} pl-11`} 
+                                placeholder="Same as phone if empty" 
+                             />
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            {/* Description Section */}
             <section className="space-y-5">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <FileText className="w-4 h-4 mr-2"/> Job Description
-                </h3>
-                <textarea 
-                    value={description} 
-                    onChange={(e) => setDescription(e.target.value)} 
-                    className={`${inputClass} min-h-[150px]`} 
-                    placeholder="Describe the role, requirements, and benefits..." 
-                    required 
-                />
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center"><FileText className="w-4 h-4 mr-2"/> Job Description</h3>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} className={`${inputClass} min-h-[150px]`} placeholder="Describe the role, requirements, and benefits..." required />
             </section>
 
-            {/* Submit Button (Free Mode) */}
-            <button 
-                type="submit" 
-                disabled={submitting} 
-                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg transition shadow-xl flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed hover:bg-blue-800 shadow-blue-800/20"
-            >
-                {submitting ? (
-                    <> <Loader2 className="animate-spin w-6 h-6 mr-2" /> Posting... </>
-                ) : (
-                    <> Post Job Now </>
-                )}
+            <button type="submit" disabled={submitting} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg transition shadow-xl flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed hover:bg-blue-900 shadow-blue-600/20">
+                {submitting ? <><Loader2 className="animate-spin w-6 h-6 mr-2" /> Posting...</> : <>Post Job Now </>}
             </button>
             
           </form>

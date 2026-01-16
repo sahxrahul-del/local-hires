@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server';
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const roleParam = searchParams.get('role'); // Get role from URL
+  const roleParam = searchParams.get('role'); 
+  const next = searchParams.get('next'); // <--- 1. CAPTURE THE 'NEXT' PAGE
 
   if (code) {
     const cookieStore = await cookies();
@@ -25,31 +26,34 @@ export async function GET(request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // --- 2. PRIORITY REDIRECT (Fixes the Reset Password Issue) ---
+      // If the email link told us to go somewhere specific (like /update-password), go there immediately.
+      if (next) {
+          return NextResponse.redirect(`${origin}${next}`);
+      }
+
+      // --- STANDARD LOGIN FLOW (Your existing logic) ---
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // --- FORCE UPDATE ROLE & PREVENT OVERWRITE LOGIC ---
-        let finalRole = 'seeker';
-        
-        // 1. Check existing profile first (Added full_name and avatar_url to selection)
+        // Fetch existing profile to check role
         const { data: existingProfile } = await supabase
             .from('profiles')
             .select('role, phone, full_name, avatar_url')
             .eq('id', user.id)
             .single();
 
-        // 2. Decide Role
+        let finalRole = 'seeker';
+        
+        // Priority: URL Param -> Existing DB Role -> Default 'seeker'
         if (roleParam === 'business') {
-             finalRole = 'business'; // URL override (Highest Priority)
+             finalRole = 'business'; 
         } else if (existingProfile?.role) {
-             finalRole = existingProfile.role; // Respect existing
+             finalRole = existingProfile.role;
         }
 
-        // 3. Extract Google Info
         const metaName = user.user_metadata?.full_name || user.user_metadata?.name || '';
         const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
 
-        // 4. UPSERT (Smart Update)
-        // FIX: If they already have a name in DB, keep it. If not, use Google name.
         await supabase.from('profiles').upsert({
             id: user.id,
             email: user.email,
@@ -59,17 +63,15 @@ export async function GET(request) {
             updated_at: new Date().toISOString(),
         });
 
-        // 5. REDIRECT
-        const isProfileComplete = existingProfile?.phone; 
-        
-        if (!isProfileComplete) {
-           return NextResponse.redirect(`${origin}/profile?role=${finalRole}`);
-        }
-
-        if (finalRole === 'business') {
-          return NextResponse.redirect(`${origin}/dashboard`);
+        // --- STRICT REDIRECT LOGIC ---
+        if (finalRole === 'admin') {
+            return NextResponse.redirect(`${origin}/admin`);
+        } else if (finalRole === 'tuition_manager') {
+            return NextResponse.redirect(`${origin}/admin/manage-tuitions`);
+        } else if (finalRole === 'business' || finalRole === 'business_manager' || finalRole === 'business_tuition_manager') {
+            return NextResponse.redirect(`${origin}/dashboard`);
         } else {
-          return NextResponse.redirect(`${origin}/find-jobs`);
+            return NextResponse.redirect(`${origin}/find-jobs`);
         }
       }
     }

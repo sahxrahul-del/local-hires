@@ -3,8 +3,11 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter, useParams } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
-// Added CheckCircle and LayoutDashboard to imports for the new modal
-import { Briefcase, MapPin, ArrowLeft, Loader2, Clock, Phone, Trash2, AlertTriangle, X, Building2, CheckCircle, LayoutDashboard } from 'lucide-react';
+import { 
+  Briefcase, MapPin, ArrowLeft, Loader2, Clock, 
+  Phone, Trash2, AlertTriangle, X, Building2, 
+  CheckCircle, LayoutDashboard, MessageCircle 
+} from 'lucide-react';
 import { nepalLocations, provinces } from '../../../lib/nepalLocations';
 
 const TIME_OPTIONS = [
@@ -31,7 +34,7 @@ export default function EditJob() {
   
   // Modal States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // <--- NEW STATE FOR SUCCESS POPUP
+  const [showSuccessModal, setShowSuccessModal] = useState(false); 
   
   // Job Form State
   const [companyName, setCompanyName] = useState(''); 
@@ -39,7 +42,10 @@ export default function EditJob() {
   const [payRate, setPayRate] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(''); 
+  
+  // Contact State
   const [contactPhone, setContactPhone] = useState(''); 
+  const [whatsappNumber, setWhatsappNumber] = useState(''); // NEW STATE
 
   // Location State
   const [province, setProvince] = useState('');
@@ -79,11 +85,23 @@ export default function EditJob() {
       setDescription(job.description);
       setCategory(job.category || '');
       setContactPhone(job.contact_phone || ''); 
+      setWhatsappNumber(job.whatsapp_number || ''); // LOAD WHATSAPP
 
       // Location
       setProvince(job.province || '');
       setDistrict(job.district || '');
-      setAddress(job.location || ''); 
+      
+      // Parse location string
+      const locParts = (job.location || '').split(',').map(s => s.trim());
+      if (locParts.length > 0) setCityZone(locParts[0]);
+      if (locParts.length === 3) {
+           setLandmark(locParts[1]);
+           setAddress(locParts[2]);
+      } else if (locParts.length === 2) {
+           setAddress(locParts[1]);
+      } else {
+           setAddress(job.location || '');
+      }
 
       setWorkDayFrom(job.work_day_from || '');
       setWorkDayTo(job.work_day_to || '');
@@ -135,6 +153,7 @@ export default function EditJob() {
     setUpdating(true);
 
     const fullLocationString = `${cityZone}, ${landmark ? landmark + ', ' : ''}${address}`;
+    const finalWhatsapp = whatsappNumber || contactPhone; // Smart Fallback
 
     try {
       const { error } = await supabase
@@ -153,17 +172,15 @@ export default function EditJob() {
           work_hour_start: workHourStart,
           work_hour_end: workHourEnd,
           contact_phone: contactPhone,
-          
-          // --- FREE MODE FIX: KEEP IT PAID ---
+          whatsapp_number: finalWhatsapp, // Save to DB
           payment_status: 'PAID' 
         })
         .eq('id', id);
 
       if (error) throw error;
       
-      // --- NEW SUCCESS LOGIC ---
       setUpdating(false);
-      setShowSuccessModal(true); // Show the nice popup instead of alert()
+      setShowSuccessModal(true);
 
     } catch (error) {
       alert('Error updating job: ' + error.message);
@@ -391,14 +408,34 @@ export default function EditJob() {
                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
                     <Phone className="w-4 h-4 mr-2"/> Contact Information
                 </h3>
-                <div>
-                    <label className={labelClass}>Contact Phone</label>
-                    <input 
-                      type="tel" 
-                      value={contactPhone} 
-                      onChange={(e) => setContactPhone(e.target.value)} 
-                      className={inputClass} 
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label className={labelClass}>Contact Phone</label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                            <input 
+                              type="tel" 
+                              value={contactPhone} 
+                              onChange={(e) => setContactPhone(e.target.value)} 
+                              className={`${inputClass} pl-11`} 
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* NEW WHATSAPP FIELD */}
+                    <div>
+                        <label className={labelClass}>WhatsApp Number <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                        <div className="relative">
+                            <MessageCircle className="absolute left-3 top-3.5 w-5 h-5 text-green-500" />
+                            <input 
+                              type="tel" 
+                              value={whatsappNumber} 
+                              onChange={(e) => setWhatsappNumber(e.target.value)} 
+                              className={`${inputClass} pl-11`} 
+                              placeholder="Same as phone if empty"
+                            />
+                        </div>
+                    </div>
                 </div>
             </section>
 
